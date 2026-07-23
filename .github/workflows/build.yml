@@ -53,6 +53,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller PySide6 fastapi uvicorn shazamio mutagen aiohttp python-multipart websockets aiofiles static-ffmpeg jinja2 yt-dlp
 
+      - name: Download ffmpeg (Windows)
+        # ffmpeg/ffprobe se empaquetan en el bundle para que la app NO intente
+        # descargarlos en runtime con static_ffmpeg. Esa descarga colgaba el
+        # arranque en Windows (consumía CPU y el proceso moría sin ventana).
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_extract -Force
+          New-Item -ItemType Directory -Force -Path vendor | Out-Null
+          $ff = Get-ChildItem -Recurse ffmpeg_extract -Filter ffmpeg.exe | Select-Object -First 1
+          $fp = Get-ChildItem -Recurse ffmpeg_extract -Filter ffprobe.exe | Select-Object -First 1
+          Copy-Item $ff.FullName vendor\ffmpeg.exe
+          Copy-Item $fp.FullName vendor\ffprobe.exe
+          Write-Host "ffmpeg empaquetado:"; Get-ChildItem vendor
+
       - name: Build with PyInstaller
         run: pyinstaller HarmoNiq.spec --clean -y
 

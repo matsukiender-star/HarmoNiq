@@ -35,6 +35,16 @@ for pkg in ('shazamio', 'shazamio_core', 'yt_dlp', 'static_ffmpeg', 'certifi', '
     except Exception as exc:
         print(f'[spec] aviso: no se pudo recolectar {pkg}: {exc}')
 
+# ffmpeg/ffprobe descargados por el workflow a vendor/. Se empaquetan para que la
+# app los encuentre en el PATH (run.py antepone el bundle) y NO intente
+# descargarlos con static_ffmpeg en runtime, que colgaba el arranque en Windows.
+for _exe in ('ffmpeg.exe', 'ffprobe.exe'):
+    _p = os.path.join(ROOT, 'vendor', _exe)
+    if os.path.exists(_p):
+        binaries.append((_p, '.'))
+    else:
+        print(f'[spec] aviso: falta vendor/{_exe}, la app dependera de descarga en runtime')
+
 a = Analysis(
     [os.path.join(ROOT, 'run.py')],
     pathex=[ROOT],

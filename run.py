@@ -7,6 +7,13 @@ import socket
 import threading
 import time
 import traceback
+import multiprocessing
+
+# Congelada en Windows, los procesos hijos de multiprocessing re-ejecutan el .exe
+# desde el principio. freeze_support() hace que el hijo corra su tarea y salga, en
+# vez de re-arrancar toda la app (lo que re-disparaba la descarga de ffmpeg y
+# tumbaba el arranque). Debe llamarse lo antes posible.
+multiprocessing.freeze_support()
 
 
 def _ensure_std_streams():
