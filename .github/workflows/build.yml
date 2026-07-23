@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-linux:
-    name: Build Linux
+    name: Build Linux AppImage
     runs-on: ubuntu-22.04
     container:
       image: python:3.12
@@ -22,7 +22,7 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y binutils libgl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libnss3 libasound2t64 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbfile1 libxfixes3 libnspr4 libxcb-render-util0 libxcb-icccm4 libxcb-util1 libxcb-shape0 libxcb-keysyms1 libxcb-image0 file
+          apt-get install -y binutils libgl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libnss3 libasound2t64 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbfile1 libxfixes3 libnspr4 libxcb-render-util0 libxcb-icccm4 libxcb-util1 libxcb-shape0 libxcb-keysyms1 libxcb-image0 file wget fuse3
 
       - name: Install Python dependencies
         run: |
@@ -33,14 +33,40 @@ jobs:
         run: |
           pyinstaller HarmoNiq.spec --clean -y
 
-      - name: Rename artifact
-        run: mv dist/HarmoNiq dist/HarmoNiq-Linux-x86_64
+      - name: Create AppImage
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/256x256/apps
+          cp dist/HarmoNiq AppDir/usr/bin/HarmoNiq
+          chmod +x AppDir/usr/bin/HarmoNiq
+          cp app/static/images/harmoniq_icon.png AppDir/harmoniq.png || echo "No icon found, using placeholder"
+          cp AppDir/harmoniq.png AppDir/.DirIcon 2>/dev/null || true
+          cp AppDir/harmoniq.png AppDir/usr/share/icons/hicolor/256x256/apps/harmoniq.png 2>/dev/null || true
+          cat > AppDir/AppRun << 'APPRUN'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          exec "${HERE}/usr/bin/HarmoNiq" "$@"
+          APPRUN
+          chmod +x AppDir/AppRun
+          cat > AppDir/harmoniq.desktop << 'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=HarmoNiq
+          Exec=HarmoNiq
+          Icon=harmoniq
+          Categories=AudioVideo;Audio;Music;
+          Comment=Download YouTube music with automatic Shazam tagging
+          DESKTOP
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir dist/HarmoNiq-x86_64.AppImage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: HarmoNiq-Linux
-          path: dist/HarmoNiq-Linux-x86_64
+          path: dist/HarmoNiq-x86_64.AppImage
 
   build-windows:
     name: Build Windows
@@ -93,10 +119,10 @@ jobs:
             ## 🎵 HarmoNiq ${{ github.ref_name }}
 
             ### Descargas
-            - 🐧 **Linux**: Descarga `HarmoNiq-Linux-x86_64`, dale permisos con `chmod +x` y ejecútalo.
+            - 🐧 **Linux**: Descarga `HarmoNiq-x86_64.AppImage`, dale permisos con `chmod +x` y ejecútalo.
             - 🪟 **Windows**: Descarga `HarmoNiq-Windows-x86_64.exe` y ejecútalo directamente.
           files: |
-            dist-artifacts/HarmoNiq-Linux-x86_64
+            dist-artifacts/HarmoNiq-x86_64.AppImage
             dist-artifacts/HarmoNiq-Windows-x86_64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
