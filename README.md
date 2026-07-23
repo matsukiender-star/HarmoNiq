@@ -1,7 +1,7 @@
 # 🎵 HarmoNiq
 
 <div align="center">
-  <img src="app/static/images/logo.png" alt="HarmoNiq Logo" width="200"/>
+  <h1>🎵 HarmoNiq</h1>
   <p><strong>A modern, elegant desktop application for downloading and auto-tagging YouTube music.</strong></p>
 </div>
 
