@@ -8,6 +8,35 @@ import threading
 import time
 import traceback
 
+
+def _ensure_std_streams():
+    """Evita el crash 'NoneType has no attribute flush' en Windows.
+
+    Empaquetada en modo ventana (PyInstaller console=False), Windows deja
+    sys.stdout y sys.stderr en None. Cualquier print()/flush() posterior revienta
+    con AttributeError antes de mostrar la ventana. Se redirigen a un archivo de
+    log (o a devnull si no se puede) para que todo funcione y quede registro.
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    stream = None
+    try:
+        if os.name == "nt":
+            base = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "HarmoNiq")
+        else:
+            base = os.path.join(os.path.expanduser("~"), ".cache", "HarmoNiq")
+        os.makedirs(base, exist_ok=True)
+        stream = open(os.path.join(base, "harmoniq.log"), "a", buffering=1, encoding="utf-8")
+    except Exception:
+        stream = open(os.devnull, "w")
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+
+
+_ensure_std_streams()
+
 # --- Entorno previo a cualquier import pesado -------------------------------
 
 FROZEN = getattr(sys, "frozen", False)
