@@ -1,79 +1,112 @@
-# 🎵 HarmoNiq
-
 <div align="center">
+  <img src="app/static/images/harmoniq_icon.png" alt="HarmoNiq" width="128" height="128">
+
   <h1>🎵 HarmoNiq</h1>
-  <p><strong>A modern, elegant desktop application for downloading and auto-tagging YouTube music.</strong></p>
+
+  <p><strong>Descarga música de YouTube y etiquétala automáticamente con Shazam.</strong></p>
+
+  <p>
+    <img alt="Plataformas" src="https://img.shields.io/badge/plataformas-Windows%20%7C%20Linux-blue">
+    <img alt="Python" src="https://img.shields.io/badge/python-3.12-yellow">
+    <a href="https://github.com/matsukiender-star/HarmoNiq/actions/workflows/build.yml">
+      <img alt="Build" src="https://github.com/matsukiender-star/HarmoNiq/actions/workflows/build.yml/badge.svg">
+    </a>
+    <a href="https://github.com/matsukiender-star/HarmoNiq/releases">
+      <img alt="Release" src="https://img.shields.io/github/v/release/matsukiender-star/HarmoNiq?include_prereleases">
+    </a>
+  </p>
 </div>
 
-## 🌟 Descripción
+---
 
-**HarmoNiq** es una herramienta potente y fácil de usar diseñada para descargar música (MP3) directamente desde YouTube o listas de reproducción de forma rápida. Lo que hace único a HarmoNiq es su integración nativa con **Shazam**, la cual identifica las canciones mientras se descargan y automáticamente aplica las etiquetas ID3 correctas (Nombre del Artista, Título de la Canción, Álbum y Carátula Oficial).
+## 🌟 ¿Qué es HarmoNiq?
 
-Olvídate de tener archivos llamados `videoclip_oficial_lyrics_2024.mp3` sin portada. ¡HarmoNiq organiza tu música para que se vea perfecta en cualquier reproductor!
+**HarmoNiq** descarga música (MP3) desde YouTube — un video o una playlist entera — y, mientras descarga, **identifica cada canción con Shazam** para aplicarle automáticamente las etiquetas ID3 correctas: **artista, título, álbum y la carátula oficial en alta calidad**.
 
-## ✨ Características Principales
+Olvídate de archivos como `videoclip_oficial_lyrics_2024.mp3` sin portada. HarmoNiq deja tu música lista y ordenada para que se vea perfecta en cualquier reproductor.
 
-* 📥 **Descarga Individual y de Playlists:** Descarga un solo video o una lista de reproducción entera de YouTube.
-* 🎧 **Auto-Etiquetado con Shazam (ID3):** Analiza acústicamente el audio descargado para encontrar la metadata real de la canción y añade la carátula oficial de alta calidad.
-* 🎨 **Diseño Moderno y Responsivo:** Interfaz construida con tecnologías web dentro de una app de escritorio nativa usando PySide6 y FastAPI, brindando animaciones fluidas y soporte para modo oscuro.
-* ✏️ **Editor de Metadatos Manual:** Si Shazam no encuentra la canción, puedes editar fácilmente el título, artista y agregar una imagen manualmente antes de guardarla.
-* 🚀 **Multiplataforma:** Disponible para Windows y Linux.
+## ✨ Características
 
-## 🛠️ Tecnologías
+- 📥 **Descarga individual y de playlists** — un video o una lista completa de YouTube.
+- 🎧 **Auto-etiquetado con Shazam** — reconocimiento acústico del audio para obtener la metadata real y la carátula oficial.
+- ✏️ **Editor manual de metadatos** — si Shazam no encuentra la canción, editas título, artista y portada a mano antes de guardar.
+- 🎨 **Interfaz moderna** — construida con tecnologías web dentro de una ventana nativa (PySide6 + FastAPI), con animaciones fluidas y modo oscuro.
+- 📂 **Carpeta de música inteligente** — detecta tu carpeta de música del sistema automáticamente (Windows y Linux).
+- 🚀 **Multiplataforma y portable** — un solo archivo para Windows y para Linux. No necesitas instalar Python, Qt ni ffmpeg: todo va dentro.
 
-* **Python 3.12**
-* **PySide6 / PyQt** (Para el renderizado de la ventana nativa y WebEngine)
-* **FastAPI & Uvicorn** (Servidor backend local)
-* **yt-dlp** (Motor principal de descargas)
-* **shazamio** (Reconocimiento acústico de canciones)
-* **mutagen** (Manipulación de etiquetas de audio)
-* **Vanilla HTML/CSS/JS** (Interfaz de usuario moderna y estilizada)
+## 📦 Descarga e instalación
 
-## 📦 Instalación
+Ve a la pestaña **[Releases](https://github.com/matsukiender-star/HarmoNiq/releases)** y descarga la última versión.
 
-Ve a la pestaña de **Releases** para descargar la versión compilada más reciente:
+### 🪟 Windows
 
-### Para Windows
-Descarga el archivo `HarmoNiq-Windows-x86_64.exe` y ejecútalo. (Puede que Windows Defender lance una advertencia de "Editor desconocido", simplemente dale a "Más información" -> "Ejecutar de todas formas").
+1. Descarga `HarmoNiq-Windows-x86_64.zip`.
+2. Descomprímelo en una carpeta.
+3. Ejecuta **`HarmoNiq.exe`**.
 
-### Para Linux
-Descarga `HarmoNiq-x86_64.AppImage`, dale permisos de ejecución y ejecútalo:
+> Windows Defender puede mostrar "Editor desconocido". Haz clic en **Más información → Ejecutar de todas formas** (la app no está firmada digitalmente, pero es segura).
+
+### 🐧 Linux
+
+Descarga `HarmoNiq-x86_64.AppImage`, dale permisos y ejecútalo:
+
 ```bash
 chmod +x HarmoNiq-x86_64.AppImage
 ./HarmoNiq-x86_64.AppImage
 ```
 
-Compatible con **Linux Mint 21 y 22, Ubuntu 22.04+, Debian 12+, Fedora 36+** y
-derivadas. No requiere instalar Python, Qt ni ffmpeg: todo va dentro.
+Compatible con **Linux Mint 21/22, Ubuntu 22.04+, Debian 12+, Fedora 36+** y derivadas.
 
-**Si no abre**, ejecútalo desde una terminal con `HARMONIQ_DEBUG=1` para ver el
-error, o revisa el registro en `~/.cache/HarmoNiq/harmoniq.log`:
+## 🎮 Cómo se usa
+
+1. Abre HarmoNiq.
+2. Pega la **URL de un video o playlist** de YouTube.
+3. (Opcional) Elige la carpeta de destino y el patrón de nombres.
+4. Dale a **Descargar**. HarmoNiq baja el audio, lo identifica con Shazam y le pone artista, título, álbum y carátula.
+5. Si alguna canción no se reconoce, usa el **editor manual** para completarla.
+
+## 🩺 Solución de problemas
+
+**La app no abre (Linux).** Ejecútala desde una terminal para ver el error:
 ```bash
 HARMONIQ_DEBUG=1 ./HarmoNiq-x86_64.AppImage
 ```
-En equipos con tarjetas gráficas viejas o dentro de una máquina virtual, si la
-ventana sale en negro, forzá el renderizado por software:
+O revisa el registro en `~/.cache/HarmoNiq/harmoniq.log`.
+
+**La ventana sale en negro** (tarjetas gráficas viejas o máquina virtual). Fuerza el renderizado por software:
 ```bash
 HARMONIQ_SOFTWARE_GL=1 ./HarmoNiq-x86_64.AppImage
 ```
 
+**Una descarga se queda "sin hacer nada".** Suele ser un problema de red al contactar YouTube o Shazam. Revisa tu conexión y vuelve a intentar.
+
+Más detalles en la **[Wiki → Troubleshooting](https://github.com/matsukiender-star/HarmoNiq/wiki)**.
+
+## 🛠️ Tecnologías
+
+| Componente | Uso |
+|---|---|
+| **Python 3.12** | Lenguaje base |
+| **PySide6 (Qt WebEngine)** | Ventana nativa que renderiza la interfaz web |
+| **FastAPI + Uvicorn** | Servidor backend local |
+| **yt-dlp** | Motor de descargas de YouTube |
+| **shazamio** | Reconocimiento acústico de canciones |
+| **mutagen** | Escritura de etiquetas ID3 |
+| **HTML/CSS/JS** | Interfaz de usuario |
+| **PyInstaller** | Empaquetado del ejecutable |
+
 ## 🚀 Compilar desde el código fuente
 
-Si prefieres ejecutar o compilar el programa tú mismo:
+### Modo desarrollo
 
 ```bash
-# 1. Clona el repositorio
-git clone https://github.com/tu-usuario/HarmoNiq.git
+git clone https://github.com/matsukiender-star/HarmoNiq.git
 cd HarmoNiq
-
-# 2. Instala las dependencias
 pip install -r requirements.txt
-
-# 3. Ejecuta el modo desarrollador
-python app/main.py
+python run.py
 ```
 
-### Compilar el AppImage de Linux
+### AppImage de Linux
 
 ```bash
 ./packaging/build_appimage.sh          # usa podman; ENGINE=docker para Docker
@@ -81,35 +114,46 @@ python app/main.py
 
 Genera `releases/HarmoNiq-x86_64.AppImage` y verifica su compatibilidad al final.
 
-**El build se hace dentro de un contenedor Ubuntu 22.04 a propósito.** Un binario
-de Linux se enlaza contra la glibc de la máquina donde se compiló y solo corre en
-sistemas con esa versión **o más nueva**. Compilarlo en Fedora/Nobara (glibc 2.43)
-o en la imagen `python:3.12` (Debian trixie, glibc 2.41) produce un AppImage que
-funciona en tu equipo y **no arranca en Linux Mint** (glibc 2.35 / 2.39): el
-enlazador aborta antes de ejecutar una sola línea, sin mostrar ningún mensaje.
-Ubuntu 22.04 es el mínimo común razonable hoy.
+> **El build se hace dentro de un contenedor Ubuntu 22.04 a propósito.** Un binario de Linux se enlaza contra la glibc de la máquina donde se compiló y solo corre en sistemas con esa versión **o más nueva**. Compilarlo en Fedora/Nobara (glibc 2.43) produce un AppImage que **no arranca en Linux Mint** (glibc 2.35/2.39): el enlazador aborta sin mostrar ningún mensaje. Ubuntu 22.04 es el mínimo común razonable hoy.
 
-Antes de publicar una release, comprobá el resultado:
+Comprueba el resultado antes de publicar:
 ```bash
 ./packaging/check_compat.sh releases/HarmoNiq-x86_64.AppImage
 ```
 
-Otros detalles del empaquetado que importan (ver comentarios en `packaging/`):
+### Ejecutable de Windows
 
-* Se usa **onedir** en vez de onefile: onefile descomprime ~270 MB a `/tmp` en
-  cada arranque y rompe a QtWebEngine, que necesita rutas estables.
-* El AppRun **desactiva el sandbox de Chromium**, que no puede inicializarse
-  dentro de un AppImage en Ubuntu 24.04 / Mint 22 (AppArmor bloquea los user
-  namespaces sin privilegios).
-* **No se empaquetan** `libGL`, `libEGL`, `libdrm`, `libgbm`, `libX11` ni
-  `libxcb`: son la mitad de usuario del driver de video y tienen que venir del
-  equipo del usuario.
-* `libstdc++` viaja aparte en `usr/optional/` y el AppRun elige entre la del
-  sistema y la del bundle según cuál sea más nueva.
-* `ffmpeg` y `ffprobe` van incluidos, así la app no necesita descargarlos en el
-  primer arranque.
-
-### Compilar el ejecutable de Windows
 ```bash
 pyinstaller HarmoNiq.spec --clean -y
 ```
+
+Genera la carpeta `dist/HarmoNiq/` con `HarmoNiq.exe` dentro. **Debe compilarse en Windows** (PyInstaller no hace cross-compile desde Linux).
+
+### Builds automáticos (CI)
+
+Cada push de un tag `v*` dispara **[GitHub Actions](https://github.com/matsukiender-star/HarmoNiq/actions)**, que compila el AppImage de Linux y el `.exe` de Windows en máquinas reales y publica un Release con ambos. También puedes lanzarlo manualmente desde la pestaña Actions (**Run workflow**).
+
+## 🔧 Notas técnicas del empaquetado
+
+Detalles que importan (ver comentarios en `packaging/` y en los `.spec`):
+
+- Se usa **onedir**, no onefile: onefile descomprime ~270 MB a un temporal en cada arranque y **rompe a QtWebEngine**, que necesita rutas estables para lanzar `QtWebEngineProcess`.
+- **UPX desactivado**: corrompe las DLL/`.so` de Qt/Chromium y dispara falsos positivos de antivirus.
+- En Linux, el AppRun **desactiva el sandbox de Chromium** (no puede inicializarse dentro de un AppImage en Ubuntu 24.04 / Mint 22 por AppArmor).
+- **No se empaquetan** `libGL`, `libEGL`, `libdrm`, `libgbm`, `libX11` ni `libxcb`: son la mitad de usuario del driver de video y deben venir del equipo del usuario.
+- `libstdc++` viaja aparte en `usr/optional/`; el AppRun elige entre la del sistema y la del bundle según cuál sea más nueva.
+- `ffmpeg`/`ffprobe` van incluidos para no depender de descargas en el primer arranque.
+
+## 🤝 Contribuir
+
+Los reportes de errores y sugerencias son bienvenidos en **[Issues](https://github.com/matsukiender-star/HarmoNiq/issues)**. Para dudas y conversación general, usa **[Discussions](https://github.com/matsukiender-star/HarmoNiq/discussions)**.
+
+## ⚖️ Aviso legal
+
+HarmoNiq es una herramienta educativa. Descarga solo contenido sobre el que tengas derechos o que sea de dominio público, y respeta los Términos de Servicio de YouTube y las leyes de copyright de tu país.
+
+---
+
+<div align="center">
+  <sub>Hecho con 🎵 por <a href="https://github.com/matsukiender-star">matsukiender-star</a></sub>
+</div>
