@@ -11,7 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
         activeWs: null,
         recentDownloads: [],
         localFiles: [],
-        currentEditingFile: null
+        currentEditingFile: null,
+        currentTaskId: null
     };
 
     // DOM Elements
@@ -37,6 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
         statusProgressFill: document.getElementById("status-progress-fill"),
         statusDetailMsg: document.getElementById("status-detail-msg"),
         statusSpeedEta: document.getElementById("status-speed-eta"),
+        btnCancelDownload: document.getElementById("btn-cancel-download"),
         songResultCard: document.getElementById("song-result-card"),
         resCoverImg: document.getElementById("res-cover-img"),
         resShazamBadge: document.getElementById("res-shazam-badge"),
@@ -122,6 +124,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 elements.settingsDirInput.value = newDir;
             }
         });
+
+        if (elements.btnCancelDownload) {
+            elements.btnCancelDownload.addEventListener("click", async () => {
+                if (state.currentTaskId) {
+                    try {
+                        const res = await fetch(`/api/cancel/${state.currentTaskId}`, { method: "POST" });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast("Cancelando descarga...", "info");
+                            elements.btnCancelDownload.style.display = "none";
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                }
+            });
+        }
     }
 
     // --- Tab Navigation ---
@@ -245,6 +264,8 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             const data = await res.json();
             if (data.task_id) {
+                state.currentTaskId = data.task_id;
+                elements.btnCancelDownload.style.display = "inline-flex";
                 connectWebSocket(data.task_id);
             } else {
                 showToast("No se pudo iniciar la tarea de descarga", "error");
@@ -296,21 +317,30 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (data.step === "tagging") {
             elements.statusTitleText.textContent = "Aplicando Etiquetas ID3...";
             elements.statusSpeedEta.textContent = "Insertando carátula y metadatos";
+        } else if (data.step === "item_completed") {
+            if (data.file_info) {
+                showCompletedSong(data.file_info);
+                addRecentDownload(data.file_info);
+            }
+            showToast("Canción completada", "info");
+            loadFilesList();
         } else if (data.step === "completed") {
             elements.statusSpinner.classList.add("hidden");
-            elements.statusTitleText.textContent = "¡Descarga y etiquetado completados!";
-            elements.statusDetailMsg.textContent = "El archivo MP3 está listo en tu equipo.";
+            elements.btnCancelDownload.style.display = "none";
+            elements.statusTitleText.textContent = "¡Proceso completado!";
+            elements.statusDetailMsg.textContent = "Todas las tareas han finalizado.";
             elements.statusSpeedEta.textContent = "";
 
             if (data.file_info) {
                 showCompletedSong(data.file_info);
                 addRecentDownload(data.file_info);
             }
-            showToast("¡Canción descargada y etiquetada con éxito!", "success");
+            showToast("¡Finalizado con éxito!", "success");
             elements.ytUrlInput.value = "";
             loadFilesList();
         } else if (data.step === "error") {
             elements.statusSpinner.classList.add("hidden");
+            elements.btnCancelDownload.style.display = "none";
             elements.statusTitleText.textContent = "Error durante el proceso";
             elements.statusDetailMsg.textContent = data.message;
             showToast(`Error: ${data.message}`, "error");
