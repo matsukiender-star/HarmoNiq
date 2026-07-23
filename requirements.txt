@@ -1,0 +1,13 @@
+PySide6
+fastapi
+uvicorn
+shazamio
+mutagen
+aiohttp
+python-multipart
+websockets
+aiofiles
+static-ffmpeg
+jinja2
+yt-dlp
+pyinstaller

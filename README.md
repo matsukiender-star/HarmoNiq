@@ -1,63 +1,65 @@
-# 🎵 HarmoNiq - YouTube MP3 & Shazam Auto-Tagger
+# 🎵 HarmoNiq
 
-HarmoNiq es una aplicación de escritorio con interfaz web ultra-moderna (Glassmorphic Dark Mode) diseñada para descargar audio de YouTube en formato MP3 (hasta 320 kbps), identificar la canción automáticamente utilizando la API acústica de **Shazam** y escribir los metadatos ID3 completando artista, título, álbum, año, género, letra y portada del álbum en alta definición directamente en el archivo MP3.
+<div align="center">
+  <img src="app/static/images/logo.png" alt="HarmoNiq Logo" width="200"/>
+  <p><strong>A modern, elegant desktop application for downloading and auto-tagging YouTube music.</strong></p>
+</div>
 
----
+## 🌟 Descripción
 
-## 🚀 Características Principales
+**HarmoNiq** es una herramienta potente y fácil de usar diseñada para descargar música (MP3) directamente desde YouTube o listas de reproducción de forma rápida. Lo que hace único a HarmoNiq es su integración nativa con **Shazam**, la cual identifica las canciones mientras se descargan y automáticamente aplica las etiquetas ID3 correctas (Nombre del Artista, Título de la Canción, Álbum y Carátula Oficial).
 
-1. **Descargador de YouTube a MP3 Alta Calidad:**
-   - Soporta enlaces de videos individuales, Shorts y Listas de reproducción de YouTube.
-   - Selección de bitrate de audio: 320 kbps (Máxima calidad), 256 kbps, 192 kbps, 128 kbps.
-   - Progreso en tiempo real con indicador de porcentaje, velocidad de descarga (MB/s) y tiempo restante (ETA).
+Olvídate de tener archivos llamados `videoclip_oficial_lyrics_2024.mp3` sin portada. ¡HarmoNiq organiza tu música para que se vea perfecta en cualquier reproductor!
 
-2. **Reconocimiento Acústico con Shazam:**
-   - Analiza la huella digital del audio descargado (o de cualquier MP3 local) usando Shazam.
-   - Extrae automáticamente: Título, Artista, Álbum, Año de lanzamiento, Género musical, Portada HD e historia de letras.
-   - Alternativa Inteligente (Fallback): Si Shazam no encuentra coincidencias, analiza el título del video de YouTube y limpia etiquetas no deseadas.
+## ✨ Características Principales
 
-3. **Editor de Etiquetas ID3 & Modo Viceversa:**
-   - Escribe etiquetas nativas ID3v2 en el archivo `.mp3`.
-   - Permite escanear cualquier canción MP3 existente en tu equipo con Shazam para autocompletar su información.
-   - Permite la edición manual completa de título, artista, álbum, año, género, letra y sustitución de portada de disco.
+* 📥 **Descarga Individual y de Playlists:** Descarga un solo video o una lista de reproducción entera de YouTube.
+* 🎧 **Auto-Etiquetado con Shazam (ID3):** Analiza acústicamente el audio descargado para encontrar la metadata real de la canción y añade la carátula oficial de alta calidad.
+* 🎨 **Diseño Moderno y Responsivo:** Interfaz construida con tecnologías web dentro de una app de escritorio nativa usando PySide6 y FastAPI, brindando animaciones fluidas y soporte para modo oscuro.
+* ✏️ **Editor de Metadatos Manual:** Si Shazam no encuentra la canción, puedes editar fácilmente el título, artista y agregar una imagen manualmente antes de guardarla.
+* 🚀 **Multiplataforma:** Disponible para Windows y Linux.
 
-4. **Directorio Personalizable por el Usuario:**
-   - Guarda los archivos en cualquier ubicación seleccionada de tu PC (por defecto: `~/Música/YouTube_Downloads`).
-   - Selección rápida mediante accesos directos (`Música`, `Descargas`, `Escritorio`, `Documentos`).
-   - Botón integrado para abrir la carpeta de descargas directamente en el explorador de archivos del sistema.
+## 🛠️ Tecnologías
 
-5. **Reproductor de Audio Integrado:**
-   - Escucha las canciones descargadas directamente desde la aplicación con el reproductor interactivo.
+* **Python 3.12**
+* **PySide6 / PyQt** (Para el renderizado de la ventana nativa y WebEngine)
+* **FastAPI & Uvicorn** (Servidor backend local)
+* **yt-dlp** (Motor principal de descargas)
+* **shazamio** (Reconocimiento acústico de canciones)
+* **mutagen** (Manipulación de etiquetas de audio)
+* **Vanilla HTML/CSS/JS** (Interfaz de usuario moderna y estilizada)
 
----
+## 📦 Instalación
 
-## 🛠️ Cómo Ejecutar la Aplicación
+Ve a la pestaña de [Releases](https://github.com/tu-usuario/HarmoNiq/releases) para descargar la versión compilada más reciente:
 
-Puedes iniciar HarmoNiq con un solo comando desde tu terminal:
+### Para Windows
+Descarga el archivo `HarmoNiq-Windows-x86_64.exe` y ejecútalo. (Puede que Windows Defender lance una advertencia de "Editor desconocido", simplemente dale a "Más información" -> "Ejecutar de todas formas").
+
+### Para Linux
+Descarga el archivo `HarmoNiq-Linux-x86_64`, dale permisos de ejecución y ejecútalo:
+```bash
+chmod +x HarmoNiq-Linux-x86_64
+./HarmoNiq-Linux-x86_64
+```
+
+## 🚀 Compilar desde el código fuente
+
+Si prefieres ejecutar o compilar el programa tú mismo:
 
 ```bash
-cd /home/daetrox/youtube_mp3_shazam
-./run.sh
+# 1. Clona el repositorio
+git clone https://github.com/tu-usuario/HarmoNiq.git
+cd HarmoNiq
+
+# 2. Instala las dependencias
+pip install -r requirements.txt
+
+# 3. Ejecuta el modo desarrollador
+python app/main.py
 ```
 
-La aplicación se iniciará localmente en `http://localhost:8000` y abrirá automáticamente tu navegador web.
-
----
-
-## 📂 Estructura del Proyecto
-
-```
-/home/daetrox/youtube_mp3_shazam/
-├── app/
-│   ├── main.py               # Servidor FastAPI y WebSockets
-│   ├── services/
-│   │   ├── downloader.py     # Servicio de descarga con yt-dlp & ffmpeg
-│   │   ├── shazam_service.py # Servicio de reconocimiento acústico con shazamio
-│   │   ├── tagger.py         # Escritura y lectura de etiquetas ID3 con mutagen
-│   │   └── file_manager.py   # Gestión de carpetas personalizables y accesos directos
-│   ├── static/               # Estilos CSS, JS y recursos gráficos
-│   └── templates/            # Plantilla HTML5 Glassmorphism
-├── venv/                     # Entorno virtual con todas las dependencias
-├── run.py                    # Script de inicio principal
-└── run.sh                    # Ejecutable bash
+Para generar tu propio binario ejecutable con PyInstaller:
+```bash
+pyinstaller HarmoNiq.spec --clean -y
 ```
