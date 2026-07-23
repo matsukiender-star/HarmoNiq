@@ -111,15 +111,27 @@ document.addEventListener("DOMContentLoaded", () => {
             document.querySelector('.nav-btn[data-tab="settings-tab"]').click();
         });
 
-        elements.btnBrowseDir.addEventListener("click", () => {
-            const newDir = prompt("Introduce la ruta completa de la carpeta en tu PC:", state.currentDir);
+        // Abre el selector de carpetas NATIVO del sistema (vía puente Qt).
+        // Si se ejecuta en un navegador normal (desarrollo), cae al prompt.
+        function pickDirectory(current) {
+            return new Promise((resolve) => {
+                if (window.hqBackend && window.hqBackend.selectDirectory) {
+                    window.hqBackend.selectDirectory(current || "", (path) => resolve(path || null));
+                } else {
+                    resolve(prompt("Introduce la ruta completa de la carpeta en tu PC:", current) || null);
+                }
+            });
+        }
+
+        elements.btnBrowseDir.addEventListener("click", async () => {
+            const newDir = await pickDirectory(state.currentDir);
             if (newDir) {
                 updateCurrentDirectory(newDir);
             }
         });
 
-        elements.btnSettingsBrowse.addEventListener("click", () => {
-            const newDir = prompt("Introduce la ruta completa de la carpeta en tu PC:", elements.settingsDirInput.value);
+        elements.btnSettingsBrowse.addEventListener("click", async () => {
+            const newDir = await pickDirectory(elements.settingsDirInput.value);
             if (newDir) {
                 elements.settingsDirInput.value = newDir;
             }

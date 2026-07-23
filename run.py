@@ -74,10 +74,12 @@ import uvicorn.protocols.http.auto  # noqa: E402,F401
 import uvicorn.protocols.websockets.auto  # noqa: E402,F401
 import websockets  # noqa: E402,F401
 
-from PySide6.QtCore import QUrl, Qt  # noqa: E402
+from PySide6.QtCore import QUrl, Qt, QObject, Slot, QFile, QIODevice  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog  # noqa: E402
 from PySide6.QtWebEngineWidgets import QWebEngineView  # noqa: E402
+from PySide6.QtWebEngineCore import QWebEngineScript  # noqa: E402
+from PySide6.QtWebChannel import QWebChannel  # noqa: E402
 
 # Se importa el OBJETO app, no la ruta "app.main:app" como string.
 # uvicorn.run("app.main:app") obliga a uvicorn a re-importar el modulo por
@@ -121,6 +123,73 @@ def wait_for_server(port, timeout=30.0):
         except OSError:
             time.sleep(0.15)
     return False
+
+
+class _NativeBridge(QObject):
+    """Puente entre la interfaz web y los diálogos nativos del sistema.
+
+    Se expone a JavaScript vía QWebChannel como `window.hqBackend`. Así el botón
+    'Explorar' de la web abre el selector de carpetas NATIVO (Explorador de
+    Windows / diálogo de GTK-KDE en Linux) en vez de pedir la ruta a mano.
+    """
+
+    def __init__(self, get_parent):
+        super().__init__()
+        self._get_parent = get_parent
+
+    @Slot(str, result=str)
+    def selectDirectory(self, current):
+        parent = self._get_parent()
+        start = current if current and os.path.isdir(current) else os.path.expanduser("~")
+        path = QFileDialog.getExistingDirectory(
+            parent, "Selecciona una carpeta", start,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
+        )
+        return path or ""
+
+
+def _install_native_bridge(view, window):
+    """Registra el puente y inyecta qwebchannel.js en la página.
+
+    Es una mejora opcional: si algo falla, la web sigue funcionando y el botón
+    'Explorar' cae al prompt de texto. Por eso todo va dentro de try/except.
+    """
+    try:
+        bridge = _NativeBridge(lambda: window)
+        channel = QWebChannel(view.page())
+        channel.registerObject("backend", bridge)
+        view.page().setWebChannel(channel)
+        # window guarda referencia para que el GC no se lleve el puente/canal.
+        window._hq_bridge = bridge
+        window._hq_channel = channel
+
+        qfile = QFile(":/qtwebchannel/qwebchannel.js")
+        if not qfile.open(QIODevice.ReadOnly):
+            print("[bridge] no se pudo leer qwebchannel.js", file=sys.stderr)
+            return
+        qwc = bytes(qfile.readAll()).decode("utf-8", "replace")
+        qfile.close()
+
+        script = QWebEngineScript()
+        script.setSourceCode(qwc + """
+            (function () {
+                function init() {
+                    new QWebChannel(qt.webChannelTransport, function (channel) {
+                        window.hqBackend = channel.objects.backend;
+                    });
+                }
+                if (window.qt && qt.webChannelTransport) { init(); }
+                else { document.addEventListener('DOMContentLoaded', init); }
+            })();
+        """)
+        script.setInjectionPoint(QWebEngineScript.DocumentReady)
+        script.setWorldId(QWebEngineScript.MainWorld)
+        script.setRunsOnSubFrames(False)
+        view.page().scripts().insert(script)
+        print("[bridge] selector de carpetas nativo instalado")
+    except Exception:
+        traceback.print_exc()
+        print("[bridge] no se pudo instalar el puente nativo; se usará el prompt", file=sys.stderr)
 
 
 def main():
@@ -176,6 +245,7 @@ def main():
     window.resize(1200, 820)
 
     view = QWebEngineView()
+    _install_native_bridge(view, window)
     view.load(QUrl(url))
     window.setCentralWidget(view)
     window.show()
