@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, Res
 from pydantic import BaseModel
 
 from app.services.file_manager import FileManager
-from app.services.downloader import DownloaderService
+from app.services.downloader import DownloaderService, active_downloads
 from app.services.shazam_service import ShazamService
 from app.services.tagger import TaggerService
 
@@ -139,6 +139,7 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
 @app.post("/api/download")
 async def start_download(req: DownloadRequest):
     task_id = str(uuid.uuid4())
+    active_downloads[task_id] = False
     target_dir = FileManager.ensure_dir(req.output_dir or app_state["download_dir"])
     
     # Run download process asynchronously
@@ -151,6 +152,11 @@ async def start_download(req: DownloadRequest):
     ))
     
     return {"task_id": task_id, "status": "started", "target_dir": target_dir}
+
+@app.post("/api/cancel/{task_id}")
+async def cancel_download(task_id: str):
+    active_downloads[task_id] = True
+    return {"success": True, "message": "Descarga cancelada"}
 
 async def run_download_process(task_id: str, url: str, target_dir: str, auto_shazam: bool, quality: str):
     loop = asyncio.get_running_loop()
@@ -179,8 +185,13 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
         url=url,
         output_dir=target_dir,
         quality=quality,
-        progress_callback=progress_callback
+        progress_callback=progress_callback,
+        task_id=task_id
     )
+
+    # Limpiar estado
+    if task_id in active_downloads:
+        del active_downloads[task_id]
 
     if not res.get("success"):
         await manager.send_status(task_id, {
@@ -396,13 +407,13 @@ async def get_audio_file(path: str):
 @app.get("/api/cover-file")
 async def get_cover_file(path: str):
     if not os.path.exists(path) or not path.endswith(".mp3"):
-        return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.png"))
+        return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"))
 
     img_bytes, mime_type = TaggerService.get_cover_art(path)
     if img_bytes:
         return Response(content=img_bytes, media_type=mime_type or "image/jpeg")
 
-    return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.png"))
+    return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"))
 
 @app.post("/api/open-folder")
 async def open_folder(payload: Dict[str, str]):

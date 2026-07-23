@@ -14,12 +14,20 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtCore import QUrl
 
+import app.main  # Force PyInstaller to bundle the entire backend
+
 # Ensure ffmpeg static binaries are added to PATH
 static_ffmpeg.add_paths()
 
+def find_free_port():
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
 def main():
-    port = 8000
-    url = f"http://localhost:{port}"
+    port = find_free_port()
+    url = f"http://127.0.0.1:{port}"
     print("=" * 65)
     print(" 🎵 HarmoNiq - YouTube MP3 & Shazam Auto-Tagger")
     print("=" * 65)
@@ -42,6 +50,16 @@ def main():
     window.resize(1024, 768)
     
     view = QWebEngineView()
+    
+    # Wait for the backend server to start before loading
+    import socket
+    for _ in range(30):
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                break
+        except OSError:
+            time.sleep(0.1)
+
     view.load(QUrl(url))
     
     window.setCentralWidget(view)
