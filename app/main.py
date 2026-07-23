@@ -1,4 +1,5 @@
 import os
+import json
 import io
 import shutil
 import uuid
@@ -62,13 +63,52 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 shazam_service = ShazamService()
 
-# Global config state
-app_state = {
-    "download_dir": FileManager.get_default_download_dir(),
-    "naming_pattern": "{artist} - {title}",
-    "auto_shazam": True,
-    "quality": "320"
-}
+# --- Persistent config ---
+def _get_config_path():
+    """Returns the path to the persistent config file."""
+    if platform.system() == "Windows":
+        config_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "HarmoNiq")
+    else:
+        config_dir = os.path.join(os.path.expanduser("~"), ".config", "HarmoNiq")
+    os.makedirs(config_dir, exist_ok=True)
+    return os.path.join(config_dir, "settings.json")
+
+def _load_config():
+    """Loads config from disk, falling back to defaults."""
+    defaults = {
+        "download_dir": FileManager.get_default_download_dir(),
+        "naming_pattern": "{artist} - {title}",
+        "auto_shazam": True,
+        "quality": "320"
+    }
+    config_path = _get_config_path()
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+            for key in defaults:
+                if key in saved:
+                    defaults[key] = saved[key]
+            # Verify saved download_dir still exists, otherwise use default
+            if not os.path.isdir(defaults["download_dir"]):
+                defaults["download_dir"] = FileManager.get_default_download_dir()
+        except Exception:
+            pass
+    return defaults
+
+def _save_config(state: dict):
+    """Saves current config to disk."""
+    try:
+        config_path = _get_config_path()
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+
+import platform
+
+# Global config state (loaded from disk)
+app_state = _load_config()
 
 # WebSocket active connections
 class ConnectionManager:
@@ -142,6 +182,7 @@ async def set_config(req: ConfigRequest):
         app_state["download_dir"] = clean_path
         app_state["auto_shazam"] = req.auto_shazam
         app_state["quality"] = req.quality
+        _save_config(app_state)
         return {"success": True, "download_dir": clean_path}
     except Exception as e:
         return {"success": False, "error": str(e)}
