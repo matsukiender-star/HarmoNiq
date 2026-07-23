@@ -139,13 +139,44 @@ class _NativeBridge(QObject):
 
     @Slot(str, result=str)
     def selectDirectory(self, current):
-        parent = self._get_parent()
         start = current if current and os.path.isdir(current) else os.path.expanduser("~")
+        # En Linux, el QFileDialog de un AppImage es el de Qt (no el de KDE), asi
+        # que se prefiere la herramienta nativa del escritorio: kdialog abre el
+        # MISMO selector de Dolphin/KDE; zenity el de GTK/GNOME. Se lanzan con el
+        # entorno del sistema (restore_host_env) para que no carguen las libs del
+        # bundle. En Windows/macOS, QFileDialog ya es el nativo.
+        if sys.platform.startswith("linux"):
+            native = self._linux_native_dir(start)
+            if native is not None:      # None = ninguna herramienta nativa
+                return native           # "" = el usuario cancelo
         path = QFileDialog.getExistingDirectory(
-            parent, "Selecciona una carpeta", start,
+            self._get_parent(), "Selecciona una carpeta", start,
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
         )
         return path or ""
+
+    @staticmethod
+    def _linux_native_dir(start):
+        import shutil
+        import subprocess
+        env = restore_host_env()
+        candidates = [
+            ["kdialog", "--getexistingdirectory", start],
+            ["zenity", "--file-selection", "--directory", "--filename", start + "/"],
+        ]
+        for cmd in candidates:
+            exe = shutil.which(cmd[0], path=env.get("PATH"))
+            if not exe:
+                continue
+            cmd[0] = exe
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            except Exception:
+                continue
+            if r.returncode == 0:
+                return r.stdout.strip()   # carpeta elegida
+            return ""                      # cancelado
+        return None                        # sin kdialog/zenity -> usar Qt
 
 
 def _install_native_bridge(view, window):
