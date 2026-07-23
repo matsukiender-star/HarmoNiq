@@ -6,6 +6,8 @@ import asyncio
 from typing import Dict, Any, Callable, Optional
 from yt_dlp import YoutubeDL
 
+active_downloads: Dict[str, bool] = {}
+
 class DownloaderService:
     @staticmethod
     def get_info(url: str) -> Dict[str, Any]:
@@ -64,11 +66,20 @@ class DownloaderService:
         output_dir: str,
         filename_template: str = "%(title)s.%(ext)s",
         quality: str = "320",
-        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        task_id: Optional[str] = None
     ) -> Dict[str, Any]:
         os.makedirs(output_dir, exist_ok=True)
         
+        current_filename = None
         def my_hook(d):
+            nonlocal current_filename
+            if d.get('filename'):
+                current_filename = d.get('filename')
+                
+            if task_id and active_downloads.get(task_id) == "cancelled":
+                raise Exception("Descarga cancelada por el usuario")
+
             if progress_callback and d.get('status') == 'downloading':
                 total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
                 downloaded_bytes = d.get('downloaded_bytes', 0)
@@ -141,4 +152,18 @@ class DownloaderService:
                     'description': info.get('description', '')
                 }
         except Exception as e:
+            if current_filename:
+                # Intenta borrar el archivo parcial (.part o incompleto) y su version .mp3
+                try:
+                    if os.path.exists(current_filename):
+                        os.remove(current_filename)
+                    if current_filename.endswith(".part"):
+                        base = current_filename[:-5]
+                        if os.path.exists(base):
+                            os.remove(base)
+                    mp3_ver = os.path.splitext(current_filename)[0] + ".mp3"
+                    if os.path.exists(mp3_ver):
+                        os.remove(mp3_ver)
+                except:
+                    pass
             return {'success': False, 'error': str(e)}

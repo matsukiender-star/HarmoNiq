@@ -155,7 +155,7 @@ async def start_download(req: DownloadRequest):
 
 @app.post("/api/cancel/{task_id}")
 async def cancel_download(task_id: str):
-    active_downloads[task_id] = True
+    active_downloads[task_id] = "cancelled"
     return {"success": True, "message": "Descarga cancelada"}
 
 async def run_download_process(task_id: str, url: str, target_dir: str, auto_shazam: bool, quality: str):
@@ -180,6 +180,9 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
         )
 
     # 1. Download YouTube video audio
+    # Initialize active download
+    active_downloads[task_id] = "running"
+    
     res = await asyncio.to_thread(
         DownloaderService.download_audio,
         url=url,
@@ -189,15 +192,30 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
         task_id=task_id
     )
 
-    # Limpiar estado
-    if task_id in active_downloads:
-        del active_downloads[task_id]
+    is_cancelled = active_downloads.get(task_id) == "cancelled"
+    
+    if is_cancelled:
+        # Delete the file if it exists because it was cancelled
+        if res.get("filepath") and os.path.exists(res["filepath"]):
+            try:
+                os.remove(res["filepath"])
+            except:
+                pass
+        await manager.send_status(task_id, {
+            "step": "error",
+            "message": "Descarga cancelada por el usuario"
+        })
+        if task_id in active_downloads:
+            del active_downloads[task_id]
+        return
 
     if not res.get("success"):
         await manager.send_status(task_id, {
             "step": "error",
             "message": f"Error al descargar: {res.get('error')}"
         })
+        if task_id in active_downloads:
+            del active_downloads[task_id]
         return
 
     mp3_file = res["filepath"]
@@ -208,6 +226,11 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
     # 2. Shazam Recognition if requested
     metadata = {}
     if auto_shazam:
+        if is_cancelled:
+            if os.path.exists(mp3_file):
+                os.remove(mp3_file)
+            return
+
         await manager.send_status(task_id, {
             "step": "shazam",
             "message": "Reconociendo canción con Shazam...",
@@ -215,6 +238,19 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
         })
 
         shazam_res = await shazam_service.recognize_file(mp3_file)
+        
+        if is_cancelled:
+        if is_cancelled:
+            if os.path.exists(mp3_file):
+                os.remove(mp3_file)
+            await manager.send_status(task_id, {
+                "step": "error",
+                "message": "Descarga cancelada por el usuario"
+            })
+            if task_id in active_downloads:
+                del active_downloads[task_id]
+            return
+
         if shazam_res.get("success") and shazam_res.get("matched"):
             metadata = {
                 "title": shazam_res["title"],
