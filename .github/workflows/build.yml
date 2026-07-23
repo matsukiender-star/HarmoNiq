@@ -1,9 +1,10 @@
-name: Build HarmoNiq Releases
+name: Build HarmoNiq
 
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*' # Se ejecuta al crear un tag como v1.0.0
+  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
 
 jobs:
   build:
@@ -12,40 +13,66 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        python-version: ["3.12"]
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
 
-      - name: Install Dependencies
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libxkbcommon-x11-0 binutils libxcb-cursor0 libasound2 libnss3
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller PySide6
-          pip install yt-dlp shazamio mutagen fastapi uvicorn static-ffmpeg aiofiles jinja2 python-multipart
+          pip install pyinstaller PySide6 fastapi uvicorn shazamio mutagen aiohttp python-multipart websockets aiofiles static-ffmpeg jinja2 yt-dlp
 
-      - name: Build Windows EXE
-        if: matrix.os == 'windows-latest'
+      - name: Build with PyInstaller
         run: |
-          pyinstaller --noconfirm --onedir --windowed --add-data "app;app/" --name "HarmoNiq" run.py
-          Compress-Archive -Path dist\HarmoNiq -DestinationPath HarmoNiq-Windows.zip
+          pyinstaller HarmoNiq.spec --clean -y
 
-      - name: Build Linux AppDir
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          pyinstaller --noconfirm --onedir --windowed --add-data "app:app/" --name "HarmoNiq" run.py
-          tar -czvf HarmoNiq-Linux.tar.gz -C dist HarmoNiq
+      - name: Rename Linux Artifact
+        if: runner.os == 'Linux'
+        run: mv dist/HarmoNiq dist/HarmoNiq-Linux-x86_64
+
+      - name: Rename Windows Artifact
+        if: runner.os == 'Windows'
+        run: ren dist\HarmoNiq.exe HarmoNiq-Windows-x86_64.exe
+        shell: cmd
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: HarmoNiq-${{ runner.os }}
+          path: |
+            dist/HarmoNiq-Linux-x86_64
+            dist/HarmoNiq-Windows-x86_64.exe
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+          merge-multiple: true
 
       - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            HarmoNiq-Windows.zip
-            HarmoNiq-Linux.tar.gz
+            dist-artifacts/HarmoNiq-Linux-x86_64
+            dist-artifacts/HarmoNiq-Windows-x86_64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

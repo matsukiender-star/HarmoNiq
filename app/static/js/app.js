@@ -657,7 +657,7 @@ document.addEventListener("DOMContentLoaded", () => {
             row.innerHTML = `
                 <td>
                     <div style="display:flex; align-items:center; gap:0.75rem;">
-                        <img src="${coverSrc}" style="width:36px; height:36px; border-radius:6px; object-fit:cover;">
+                        <img src="${coverSrc}" style="width:36px; height:36px; border-radius:6px; object-fit:cover;" onerror="this.onerror=null; this.src='/static/images/default_cover.svg';">
                         <strong>${f.filename}</strong>
                     </div>
                 </td>

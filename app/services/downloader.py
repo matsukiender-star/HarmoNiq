@@ -67,7 +67,7 @@ class DownloaderService:
         filename_template: str = "%(title)s.%(ext)s",
         quality: str = "320",
         progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        task_id: Optional[str] = None
+        is_cancelled: Optional[Callable[[], bool]] = None
     ) -> Dict[str, Any]:
         os.makedirs(output_dir, exist_ok=True)
         
@@ -77,7 +77,7 @@ class DownloaderService:
             if d.get('filename'):
                 current_filename = d.get('filename')
                 
-            if task_id and active_downloads.get(task_id) == "cancelled":
+            if is_cancelled and is_cancelled():
                 raise Exception("Descarga cancelada por el usuario")
 
             if progress_callback and d.get('status') == 'downloading':

@@ -6,8 +6,32 @@ import asyncio
 import subprocess
 import tempfile
 import ssl
+import certifi
+import aiohttp
+import aiohttp.connector
 
+def _find_system_ca_bundle():
+    paths = [
+        "/etc/ssl/certs/ca-certificates.crt",                # Debian/Ubuntu/Gentoo etc.
+        "/etc/pki/tls/certs/ca-bundle.crt",                  # Fedora/RHEL 6
+        "/etc/ssl/ca-bundle.pem",                            # OpenSUSE
+        "/etc/pki/tls/cacert.pem",                           # OpenELEC
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", # CentOS/RHEL 7, Nobara
+        "/etc/ssl/cert.pem",                                 # Alpine Linux
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return p
+    return certifi.where()
+
+ca_bundle = _find_system_ca_bundle()
+os.environ["SSL_CERT_FILE"] = ca_bundle
+os.environ["REQUESTS_CA_BUNDLE"] = ca_bundle
+
+# Force completely bypass SSL verification
 ssl._create_default_https_context = ssl._create_unverified_context
+ssl.create_default_context = lambda *args, **kwargs: ssl._create_unverified_context()
+aiohttp.connector.create_default_context = lambda *args, **kwargs: ssl._create_unverified_context()
 
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
@@ -221,7 +245,7 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
             output_dir=target_dir,
             quality=quality,
             progress_callback=progress_callback,
-            task_id=task_id
+            is_cancelled=lambda: active_downloads.get(task_id) == "cancelled"
         )
 
         is_cancelled = active_downloads.get(task_id) == "cancelled"
@@ -350,3 +374,125 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
         
     if task_id in active_downloads:
         del active_downloads[task_id]
+
+
+@app.post("/api/shazam-file")
+async def shazam_file(file_path: Optional[str] = Form(None), file: Optional[UploadFile] = File(None)):
+    target_path = file_path
+
+    if file:
+        # Save uploaded file permanently in user's download directory so it can be edited and retained!
+        target_dir = FileManager.ensure_dir(app_state["download_dir"])
+        safe_filename = file.filename or f"uploaded_{uuid.uuid4().hex[:8]}.mp3"
+        if not safe_filename.endswith(".mp3"):
+            safe_filename += ".mp3"
+            
+        target_path = os.path.join(target_dir, safe_filename)
+        
+        # Avoid overwriting by appending counter if needed
+        counter = 1
+        base, ext = os.path.splitext(target_path)
+        while os.path.exists(target_path):
+            target_path = f"{base}_{counter}{ext}"
+            counter += 1
+
+        with open(target_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+    if not target_path or not os.path.exists(target_path):
+        return {"success": False, "error": "Ruta de archivo no existe o archivo inválido"}
+
+    res = await shazam_service.recognize_file(target_path)
+    res["filepath"] = target_path
+    res["filename"] = os.path.basename(target_path)
+    return res
+
+@app.post("/api/read-tags")
+async def read_tags(payload: Dict[str, str]):
+    file_path = payload.get("file_path", "")
+    return TaggerService.read_tags(file_path)
+
+@app.post("/api/save-tags")
+async def save_tags(
+    file_path: str = Form(...),
+    title: str = Form(...),
+    artist: str = Form(...),
+    album: str = Form(...),
+    year: Optional[str] = Form(""),
+    genre: Optional[str] = Form(""),
+    lyrics: Optional[str] = Form(""),
+    cover_url: Optional[str] = Form(None),
+    cover_file: Optional[UploadFile] = File(None)
+):
+    cover_bytes = None
+    if cover_file:
+        cover_bytes = await cover_file.read()
+
+    res = TaggerService.apply_tags(
+        file_path=file_path,
+        title=title,
+        artist=artist,
+        album=album,
+        year=year,
+        genre=genre,
+        lyrics=lyrics,
+        cover_url=cover_url,
+        cover_bytes=cover_bytes
+    )
+    
+    # Optionally rename file if artist & title changed
+    final_path = file_path
+    if res.get("success") and artist and title:
+        clean_artist = "".join([c for c in artist if c.isalnum() or c in " -_()[]"]).strip()
+        clean_title = "".join([c for c in title if c.isalnum() or c in " -_()[]"]).strip()
+        if clean_artist and clean_title:
+            target_dir = os.path.dirname(file_path)
+            new_filename = f"{clean_artist} - {clean_title}.mp3"
+            new_filepath = os.path.join(target_dir, new_filename)
+            try:
+                if file_path != new_filepath and os.path.exists(file_path):
+                    if os.path.exists(new_filepath):
+                        os.remove(new_filepath)
+                    os.rename(file_path, new_filepath)
+                    final_path = new_filepath
+            except Exception:
+                pass
+
+    res["filepath"] = final_path
+    res["filename"] = os.path.basename(final_path)
+    res["cover_url"] = f"/api/cover-file?path={final_path}"
+    return res
+
+@app.get("/api/files")
+async def list_files(directory: Optional[str] = None):
+    target_dir = directory or app_state["download_dir"]
+    files = FileManager.list_mp3_files(target_dir)
+    return {"directory": target_dir, "files": files}
+
+@app.get("/api/audio-file")
+async def get_audio_file(path: str):
+    if not os.path.exists(path) or not path.endswith(".mp3"):
+        raise HTTPException(status_code=404, detail="Archivo MP3 no encontrado")
+    return FileResponse(path, media_type="audio/mpeg")
+
+@app.get("/api/cover-file")
+async def get_cover_file(path: str):
+    if not os.path.exists(path) or not path.endswith(".mp3"):
+        return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"), media_type="image/svg+xml")
+
+    img_bytes, mime_type = TaggerService.get_cover_art(path)
+    if img_bytes:
+        return Response(content=img_bytes, media_type=mime_type or "image/jpeg")
+
+    return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"), media_type="image/svg+xml")
+
+@app.post("/api/open-folder")
+async def open_folder(payload: Dict[str, str]):
+    path = payload.get("path") or app_state["download_dir"]
+    if os.path.exists(path):
+        try:
+            subprocess.Popen(["xdg-open", path])
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    return {"success": False, "error": "Ruta no existe"}
