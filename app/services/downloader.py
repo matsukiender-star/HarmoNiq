@@ -37,7 +37,7 @@ class DownloaderService:
                             entries.append({
                                 'id': entry.get('id'),
                                 'title': entry.get('title'),
-                                'url': entry.get('url') or f"https://www.youtube.com/watch?v={entry.get('id')}",
+                                'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
                                 'duration': entry.get('duration', 0),
                                 'uploader': entry.get('uploader', '')
                             })

@@ -177,6 +177,11 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
         return
 
     entries = info.get('entries') if info.get('is_playlist') else [{'url': url, 'title': info.get('title')}]
+    
+    if info.get('is_playlist'):
+        if "list=RD" in url:
+            entries = entries[:15]
+            
     total_entries = len(entries)
     
     active_downloads[task_id] = "running"

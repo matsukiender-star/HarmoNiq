@@ -306,16 +306,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (data.step === "downloading") {
-            elements.statusTitleText.textContent = "Descargando Audio...";
+            elements.statusTitleText.textContent = data.message.includes("[") ? data.message : "Descargando Audio...";
             if (data.speed && data.eta) {
                 const speedMb = (data.speed / (1024 * 1024)).toFixed(2);
                 elements.statusSpeedEta.textContent = `${speedMb} MB/s | ETA: ${data.eta}s`;
             }
         } else if (data.step === "shazam") {
-            elements.statusTitleText.textContent = "Reconociendo con Shazam...";
+            elements.statusTitleText.textContent = data.message.includes("[") ? data.message : "Reconociendo con Shazam...";
             elements.statusSpeedEta.textContent = "Analizando huella acústica";
         } else if (data.step === "tagging") {
-            elements.statusTitleText.textContent = "Aplicando Etiquetas ID3...";
+            elements.statusTitleText.textContent = data.message.includes("[") ? data.message : "Aplicando Etiquetas ID3...";
             elements.statusSpeedEta.textContent = "Insertando carátula y metadatos";
         } else if (data.step === "item_completed") {
             if (data.file_info) {
