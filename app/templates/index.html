@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HarmoNiq - YouTube MP3 & Shazam Auto-Tagger</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-wave-square"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Harmo<span>Niq</span></h1>
+                    <p>YouTube MP3 & Shazam</p>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-tab="download-tab">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                    <span>Descargar MP3</span>
+                </button>
+                <button class="nav-btn" data-tab="shazam-tab">
+                    <i class="fa-solid fa-compact-disc"></i>
+                    <span>Shazam & Editor</span>
+                </button>
+                <button class="nav-btn" data-tab="files-tab">
+                    <i class="fa-solid fa-folder-music"></i>
+                    <span>Mis Canciones</span>
+                </button>
+                <button class="nav-btn" data-tab="settings-tab">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Configuración</span>
+                </button>
+            </nav>
+
+            <div class="current-path-widget">
+                <div class="widget-header">
+                    <i class="fa-solid fa-folder"></i>
+                    <span>Directorio Activo</span>
+                </div>
+                <div class="path-display" id="sidebar-path-display">Cargando...</div>
+                <button class="change-path-btn" id="sidebar-change-dir-btn">
+                    <i class="fa-solid fa-folder-open"></i> Cambiar
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+
+            <!-- TAB 1: DOWNLOAD MP3 -->
+            <section class="tab-content active" id="download-tab">
+                <header class="content-header">
+                    <h2>Descargar Audio de YouTube</h2>
+                    <p>Descarga tus canciones en formato MP3 y enriquece sus metadatos automáticamente con Shazam.</p>
+                </header>
+
+                <div class="download-card glass-panel">
+                    <div class="input-group main-url-group">
+                        <i class="fa-brands fa-youtube search-icon"></i>
+                        <input type="text" id="yt-url-input" placeholder="Pega el enlace de YouTube aquí (ej: https://www.youtube.com/watch?v=...)" autocomplete="off">
+                        <button class="btn-primary" id="start-download-btn">
+                            <i class="fa-solid fa-download"></i> Descargar MP3
+                        </button>
+                    </div>
+
+                    <!-- Download Options -->
+                    <div class="download-options">
+                        <div class="option-item">
+                            <label class="switch">
+                                <input type="checkbox" id="auto-shazam-check" checked>
+                                <span class="slider round"></span>
+                            </label>
+                            <div class="option-label">
+                                <strong>Reconocimiento con Shazam</strong>
+                                <span>Identifica artista, álbum, año y portada HD automáticamente</span>
+                            </div>
+                        </div>
+
+                        <div class="option-item">
+                            <label for="quality-select"><strong>Calidad Audio MP3:</strong></label>
+                            <select id="quality-select" class="custom-select">
+                                <option value="320" selected>320 kbps (Máxima Calidad)</option>
+                                <option value="256">256 kbps (Alta)</option>
+                                <option value="192">192 kbps (Estándar)</option>
+                                <option value="128">128 kbps (Compacta)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Custom Directory Bar inside Download Card -->
+                    <div class="directory-bar">
+                        <i class="fa-solid fa-folder-tree"></i>
+                        <span>Guardar en:</span>
+                        <input type="text" id="custom-dir-input" placeholder="Ruta personalizable en tu PC">
+                        <button class="btn-secondary btn-sm" id="btn-browse-dir">
+                            <i class="fa-solid fa-folder-open"></i> Explorar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Download Status Panel -->
+                <div class="status-card glass-panel hidden" id="download-status-card">
+                    <div class="status-header">
+                        <div class="status-title">
+                            <div class="spinner" id="status-spinner"></div>
+                            <span id="status-title-text">Procesando...</span>
+                        </div>
+                        <span class="status-percentage" id="status-percent">0%</span>
+                    </div>
+
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="status-progress-fill" style="width: 0%;"></div>
+                    </div>
+
+                    <div class="status-details">
+                        <span id="status-detail-msg">Preparando descarga...</span>
+                        <span id="status-speed-eta"></span>
+                    </div>
+
+                    <!-- Completed Song Card Preview -->
+                    <div class="song-result-card hidden" id="song-result-card">
+                        <div class="cover-wrapper">
+                            <img id="res-cover-img" src="/static/images/default_cover.png" alt="Cover Art">
+                            <span class="shazam-badge" id="res-shazam-badge" title="Reconocido con Shazam">
+                                <i class="fa-solid fa-bolt"></i> Shazam
+                            </span>
+                        </div>
+                        <div class="song-meta">
+                            <h3 id="res-title">Nombre de la Canción</h3>
+                            <p class="artist" id="res-artist">Artista</p>
+                            <p class="album" id="res-album">Álbum</p>
+                            <div class="meta-tags">
+                                <span class="tag" id="res-year"><i class="fa-regular fa-calendar"></i> Año</span>
+                                <span class="tag" id="res-genre"><i class="fa-solid fa-music"></i> Género</span>
+                            </div>
+                            <div class="song-actions">
+                                <button class="btn-action" id="res-play-btn"><i class="fa-solid fa-play"></i> Escuchar</button>
+                                <button class="btn-action" id="res-edit-btn"><i class="fa-solid fa-pen-to-square"></i> Editar Metadatos</button>
+                                <button class="btn-action" id="res-open-folder-btn"><i class="fa-solid fa-folder-open"></i> Abrir Carpeta</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Downloads List -->
+                <div class="recent-section">
+                    <h3>Descargas Recientes</h3>
+                    <div class="recent-grid" id="recent-downloads-grid">
+                        <p class="empty-state">No hay descargas en esta sesión aún.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: SHAZAM & TAG EDITOR -->
+            <section class="tab-content" id="shazam-tab">
+                <header class="content-header">
+                    <h2>Reconocimiento Shazam y Editor Viceversa</h2>
+                    <p>Reconoce cualquier MP3 guardado en tu equipo con Shazam o edita manualmente sus etiquetas ID3.</p>
+                </header>
+
+                <div class="grid-2col">
+                    <!-- Drop/Select File Card -->
+                    <div class="glass-panel drop-zone-panel">
+                        <div class="drop-zone" id="mp3-drop-zone">
+                            <i class="fa-solid fa-file-audio drop-icon"></i>
+                            <h3>Selecciona o arrastra un archivo MP3</h3>
+                            <p>Para escanear con Shazam y actualizar sus metadatos</p>
+                            <input type="file" id="file-picker-input" accept=".mp3" hidden>
+                            <button class="btn-secondary" id="btn-select-file">
+                                <i class="fa-solid fa-file-arrow-up"></i> Seleccionar MP3
+                            </button>
+                        </div>
+
+                        <div class="or-divider"><span>O Selecciona de tu Carpeta</span></div>
+
+                        <div class="local-files-picker">
+                            <select id="local-files-select" class="custom-select full-width">
+                                <option value="">Cargando canciones locales...</option>
+                            </select>
+                            <button class="btn-primary" id="btn-load-selected-file">
+                                <i class="fa-solid fa-magnifying-glass-music"></i> Cargar Canción
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tag Editor Panel -->
+                    <div class="glass-panel tag-editor-panel">
+                        <div class="editor-header">
+                            <h3>Editor de Etiquetas ID3</h3>
+                            <button class="btn-shazam" id="btn-run-shazam-recognition">
+                                <i class="fa-solid fa-bolt"></i> Reconocer con Shazam
+                            </button>
+                        </div>
+
+                        <form id="tag-editor-form" class="tag-form">
+                            <input type="hidden" id="tag-file-path">
+                            <input type="hidden" id="tag-cover-url">
+
+                            <div class="cover-editor-row">
+                                <div class="cover-preview-box">
+                                    <img id="editor-cover-preview" src="/static/images/default_cover.png" alt="Cover Preview">
+                                    <label class="cover-upload-btn" title="Cambiar portada">
+                                        <i class="fa-solid fa-camera"></i>
+                                        <input type="file" id="cover-file-input" accept="image/*" hidden>
+                                    </label>
+                                </div>
+                                <div class="cover-info">
+                                    <span class="badge" id="shazam-status-badge">Listo para editar</span>
+                                    <p class="help-text">Puedes autocompletar la información escaneando el audio con Shazam o editando directamente los campos.</p>
+                                </div>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="tag-title">Título de la Canción</label>
+                                    <input type="text" id="tag-title" placeholder="Ej: Bohemian Rhapsody">
+                                </div>
+                                <div class="form-group">
+                                    <label for="tag-artist">Artista</label>
+                                    <input type="text" id="tag-artist" placeholder="Ej: Queen">
+                                </div>
+                                <div class="form-group">
+                                    <label for="tag-album">Álbum</label>
+                                    <input type="text" id="tag-album" placeholder="Ej: A Night at the Opera">
+                                </div>
+                                <div class="form-group">
+                                    <label for="tag-year">Año de Lanzamiento</label>
+                                    <input type="text" id="tag-year" placeholder="Ej: 1975">
+                                </div>
+                                <div class="form-group">
+                                    <label for="tag-genre">Género Musical</label>
+                                    <input type="text" id="tag-genre" placeholder="Ej: Rock">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="tag-lyrics">Letra de la Canción</label>
+                                    <textarea id="tag-lyrics" rows="4" placeholder="Letra sincronizada o de texto..."></textarea>
+                                </div>
+                            </div>
+
+                            <div class="editor-actions">
+                                <button type="submit" class="btn-primary" id="btn-save-tags">
+                                    <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios en MP3
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: MIS CANCIONES -->
+            <section class="tab-content" id="files-tab">
+                <header class="content-header flex-between">
+                    <div>
+                        <h2>Mis Canciones MP3</h2>
+                        <p>Explora y reproduce tus canciones guardadas en tu directorio personalizable.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-secondary" id="btn-refresh-files">
+                            <i class="fa-solid fa-rotate-right"></i> Actualizar
+                        </button>
+                        <button class="btn-primary" id="btn-open-dir-explorer">
+                            <i class="fa-solid fa-folder-open"></i> Abrir en Carpeta
+                        </button>
+                    </div>
+                </header>
+
+                <div class="glass-panel files-panel">
+                    <div class="search-files-bar">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="files-search-input" placeholder="Buscar canción o artista por nombre...">
+                    </div>
+
+                    <div class="files-table-wrapper">
+                        <table class="files-table">
+                            <thead>
+                                <tr>
+                                    <th>Canción</th>
+                                    <th>Tamaño</th>
+                                    <th>Fecha</th>
+                                    <th class="text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="files-table-body">
+                                <tr>
+                                    <td colspan="4" class="text-center">Cargando canciones...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: CONFIGURACIÓN -->
+            <section class="tab-content" id="settings-tab">
+                <header class="content-header">
+                    <h2>Configuración Personal</h2>
+                    <p>Personaliza las opciones de almacenamiento por defecto y comportamiento de la aplicación.</p>
+                </header>
+
+                <div class="glass-panel settings-panel">
+                    <form id="settings-form">
+                        <div class="form-group">
+                            <label for="settings-dir-input"><strong>Directorio Personalizable de Guardado:</strong></label>
+                            <div class="input-with-btn">
+                                <input type="text" id="settings-dir-input" class="full-width">
+                                <button type="button" class="btn-secondary" id="btn-settings-browse">
+                                    <i class="fa-solid fa-folder-open"></i> Explorar
+                                </button>
+                            </div>
+                            <small class="help-text">Los archivos MP3 descargados y etiquetados se guardarán automáticamente en esta ubicación.</small>
+                        </div>
+
+                        <div class="shortcuts-section">
+                            <label><strong>Accesos Rápidos a Carpetas del Sistema:</strong></label>
+                            <div class="shortcut-pills" id="shortcut-pills-container">
+                                <!-- Dynamic shortcut pills -->
+                            </div>
+                        </div>
+
+                        <hr class="panel-divider">
+
+                        <div class="form-group">
+                            <label class="switch-row">
+                                <div>
+                                    <strong>Auto-Shazam en descargas por defecto</strong>
+                                    <p class="help-text">Reconoce automáticamente el audio de YouTube con Shazam al finalizar la descarga.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="settings-auto-shazam" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </label>
+                        </div>
+
+                        <div class="settings-actions">
+                            <button type="submit" class="btn-primary">
+                                <i class="fa-solid fa-check"></i> Guardar Configuración
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Audio Player Bar (Sticky Bottom) -->
+    <div class="sticky-player glass-panel hidden" id="sticky-player">
+        <div class="player-left">
+            <img id="player-cover" src="/static/images/default_cover.png" alt="Cover">
+            <div class="player-info">
+                <h4 id="player-title">Título de la Canción</h4>
+                <p id="player-artist">Artista</p>
+            </div>
+        </div>
+        <div class="player-center">
+            <audio id="main-audio-element" controls preload="metadata"></audio>
+        </div>
+        <div class="player-right">
+            <button class="btn-icon" id="player-close-btn" title="Cerrar reproductor">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Global Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Main JavaScript -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

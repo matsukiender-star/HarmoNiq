@@ -1,0 +1,144 @@
+import os
+import static_ffmpeg
+static_ffmpeg.add_paths()
+
+import asyncio
+from typing import Dict, Any, Callable, Optional
+from yt_dlp import YoutubeDL
+
+class DownloaderService:
+    @staticmethod
+    def get_info(url: str) -> Dict[str, Any]:
+        """Fetch YouTube video/playlist info without downloading"""
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': 'in_playlist',
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web', 'ios', 'mweb'],
+                    'skip': ['hls', 'dash']
+                }
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            }
+        }
+        try:
+            with YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if 'entries' in info:
+                    # Playlist
+                    entries = []
+                    for entry in info['entries']:
+                        if entry:
+                            entries.append({
+                                'id': entry.get('id'),
+                                'title': entry.get('title'),
+                                'url': entry.get('url') or f"https://www.youtube.com/watch?v={entry.get('id')}",
+                                'duration': entry.get('duration', 0),
+                                'uploader': entry.get('uploader', '')
+                            })
+                    return {
+                        'is_playlist': True,
+                        'title': info.get('title', 'Lista de reproducción'),
+                        'count': len(entries),
+                        'entries': entries
+                    }
+                else:
+                    return {
+                        'is_playlist': False,
+                        'id': info.get('id'),
+                        'title': info.get('title'),
+                        'uploader': info.get('uploader'),
+                        'duration': info.get('duration', 0),
+                        'thumbnail': info.get('thumbnail'),
+                        'description': info.get('description', '')
+                    }
+        except Exception as e:
+            return {'error': str(e)}
+
+    @staticmethod
+    def download_audio(
+        url: str,
+        output_dir: str,
+        filename_template: str = "%(title)s.%(ext)s",
+        quality: str = "320",
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+    ) -> Dict[str, Any]:
+        os.makedirs(output_dir, exist_ok=True)
+        
+        def my_hook(d):
+            if progress_callback and d.get('status') == 'downloading':
+                total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+                downloaded_bytes = d.get('downloaded_bytes', 0)
+                speed = d.get('speed', 0)
+                eta = d.get('eta', 0)
+                percent = (downloaded_bytes / total_bytes * 100) if total_bytes > 0 else 0
+                
+                progress_callback({
+                    'status': 'downloading',
+                    'percent': round(percent, 1),
+                    'downloaded_bytes': downloaded_bytes,
+                    'total_bytes': total_bytes,
+                    'speed': speed,
+                    'eta': eta,
+                    'filename': d.get('filename')
+                })
+            elif progress_callback and d.get('status') == 'finished':
+                progress_callback({
+                    'status': 'converting',
+                    'percent': 100.0,
+                    'message': 'Convirtiendo audio a MP3...'
+                })
+
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': quality,
+            }],
+            'outtmpl': os.path.join(output_dir, filename_template),
+            'progress_hooks': [my_hook],
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web', 'ios', 'mweb'],
+                    'skip': ['hls', 'dash']
+                }
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            }
+        }
+
+        try:
+            with YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                
+                final_mp3 = None
+                if info.get('requested_downloads'):
+                    for rd in info['requested_downloads']:
+                        fp = rd.get('filepath')
+                        if fp:
+                            final_mp3 = os.path.splitext(fp)[0] + ".mp3"
+                            break
+
+                if not final_mp3 or not os.path.exists(final_mp3):
+                    prepared = ydl.prepare_filename(info)
+                    final_mp3 = os.path.splitext(prepared)[0] + ".mp3"
+                
+                return {
+                    'success': True,
+                    'filepath': final_mp3,
+                    'title': info.get('title'),
+                    'uploader': info.get('uploader'),
+                    'duration': info.get('duration'),
+                    'thumbnail': info.get('thumbnail'),
+                    'description': info.get('description', '')
+                }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}

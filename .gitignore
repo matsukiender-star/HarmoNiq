@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+.env
+build/
+dist/
+*.spec
+*.AppImage
+*.part
+*.tar
+*.tar.gz
+*.zip
+.DS_Store
