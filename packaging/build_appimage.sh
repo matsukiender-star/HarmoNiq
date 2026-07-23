@@ -107,7 +107,7 @@ Terminal=false
 Categories=AudioVideo;Audio;Music;
 Keywords=youtube;mp3;music;shazam;download;
 StartupNotify=true
-StartupWMClass=HarmoNiq
+StartupWMClass=harmoniq
 DESKTOP
 cp AppDir/harmoniq.desktop AppDir/usr/share/applications/harmoniq.desktop
 

@@ -113,6 +113,45 @@ fi
 export PATH="${PYI_INTERNAL}:${APPDIR}/usr/bin/HarmoNiq:${PATH}"
 
 # ---------------------------------------------------------------------------
+# 4.5) Integracion de escritorio (icono en la barra de tareas / dock).
+# La barra de tareas NO usa el setWindowIcon() de la app: asocia la ventana a un
+# archivo .desktop instalado en el sistema (por app_id en Wayland o WM_CLASS en
+# X11) y de ahi saca el icono. Un AppImage suelto no instala nada, asi que el
+# dock muestra un icono generico. Aqui se instala el .desktop + icono en
+# ~/.local/share la primera vez (idempotente; se rehace si cambia la ruta del
+# AppImage). $APPIMAGE lo define el runtime del AppImage con su ruta real.
+# ---------------------------------------------------------------------------
+if [ -n "${APPIMAGE:-}" ]; then
+    DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+    APP_DESKTOP="${DATA_HOME}/applications/harmoniq.desktop"
+    SRC_ICON="${APPDIR}/usr/share/icons/hicolor/256x256/apps/harmoniq.png"
+    [ -f "${SRC_ICON}" ] || SRC_ICON="${APPDIR}/harmoniq.png"
+    if ! grep -qF "${APPIMAGE}" "${APP_DESKTOP}" 2>/dev/null; then
+        mkdir -p "${DATA_HOME}/applications" \
+                 "${DATA_HOME}/icons/hicolor/256x256/apps" 2>/dev/null
+        [ -f "${SRC_ICON}" ] && cp -f "${SRC_ICON}" \
+            "${DATA_HOME}/icons/hicolor/256x256/apps/harmoniq.png" 2>/dev/null
+        cat > "${APP_DESKTOP}" 2>/dev/null <<EOF
+[Desktop Entry]
+Type=Application
+Name=HarmoNiq
+GenericName=YouTube MP3 Downloader
+Comment=Descarga musica de YouTube con etiquetado automatico por Shazam
+Exec="${APPIMAGE}" %U
+Icon=harmoniq
+Terminal=false
+Categories=AudioVideo;Audio;Music;
+Keywords=youtube;mp3;music;shazam;download;
+StartupNotify=true
+StartupWMClass=harmoniq
+EOF
+        update-desktop-database "${DATA_HOME}/applications" >/dev/null 2>&1 || true
+        gtk-update-icon-cache "${DATA_HOME}/icons/hicolor" >/dev/null 2>&1 || true
+        echo "Integracion de escritorio instalada en ${APP_DESKTOP}" >> "${LOG}"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # 5) Ejecutar.
 # ---------------------------------------------------------------------------
 if [ ! -x "${BINDIR}/HarmoNiq" ]; then
