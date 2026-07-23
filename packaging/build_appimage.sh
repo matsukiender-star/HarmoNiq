@@ -33,12 +33,25 @@ echo ">> [2/4] Compilando con PyInstaller dentro del contenedor..."
             websockets aiofiles static-ffmpeg jinja2 yt-dlp certifi pyinstaller
 
         # ffmpeg estatico, para no depender de descargas en el primer arranque.
+        # BtbN (GitHub) es la fuente principal por confiabilidad; johnvansickle
+        # de respaldo (a veces devuelve 415/rate-limit). Con 3 reintentos c/u.
         mkdir -p vendor
         if [ ! -x vendor/ffmpeg ]; then
-            curl -fsSL -o /tmp/ff.tar.xz \
-                https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-            mkdir -p /tmp/ff && tar -xJf /tmp/ff.tar.xz -C /tmp/ff --strip-components=1
-            cp /tmp/ff/ffmpeg /tmp/ff/ffprobe vendor/
+            ff_ok=0
+            for url in \
+                https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz \
+                https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz; do
+                for i in 1 2 3; do
+                    if curl -fsSL -o /tmp/ff.tar.xz "$url"; then ff_ok=1; break; fi
+                    sleep 5
+                done
+                [ "$ff_ok" = 1 ] && break
+            done
+            [ "$ff_ok" = 1 ] || { echo "no se pudo descargar ffmpeg"; exit 1; }
+            rm -rf /tmp/ff && mkdir -p /tmp/ff
+            tar -xJf /tmp/ff.tar.xz -C /tmp/ff
+            cp "$(find /tmp/ff -type f -name ffmpeg | head -1)" vendor/ffmpeg
+            cp "$(find /tmp/ff -type f -name ffprobe | head -1)" vendor/ffprobe
             chmod +x vendor/ffmpeg vendor/ffprobe
         fi
 
