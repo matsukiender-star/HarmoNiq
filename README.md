@@ -144,6 +144,11 @@ Detalles que importan (ver comentarios en `packaging/` y en los `.spec`):
 - `libstdc++` viaja aparte en `usr/optional/`; el AppRun elige entre la del sistema y la del bundle según cuál sea más nueva.
 - `ffmpeg`/`ffprobe` van incluidos para no depender de descargas en el primer arranque.
 
+## 👥 Créditos
+
+- **[daetrox](https://github.com/daetrox)** — creador original: la idea y el esqueleto del proyecto.
+- **[matsukiender-star](https://github.com/matsukiender-star)** — mantenimiento, empaquetado multiplataforma y mejoras.
+
 ## 🤝 Contribuir
 
 Los reportes de errores y sugerencias son bienvenidos en **[Issues](https://github.com/matsukiender-star/HarmoNiq/issues)**. Para dudas y conversación general, usa **[Discussions](https://github.com/matsukiender-star/HarmoNiq/discussions)**.
@@ -155,5 +160,5 @@ HarmoNiq es una herramienta educativa. Descarga solo contenido sobre el que teng
 ---
 
 <div align="center">
-  <sub>Hecho con 🎵 por <a href="https://github.com/matsukiender-star">matsukiender-star</a></sub>
+  <sub>Idea y esqueleto original por <a href="https://github.com/daetrox">daetrox</a> · empaquetado y mejoras por <a href="https://github.com/matsukiender-star">matsukiender-star</a> · hecho con 🎵</sub>
 </div>
