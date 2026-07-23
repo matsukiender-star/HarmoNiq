@@ -31,7 +31,7 @@ Olvídate de tener archivos llamados `videoclip_oficial_lyrics_2024.mp3` sin por
 
 ## 📦 Instalación
 
-Ve a la pestaña de [Releases](https://github.com/tu-usuario/HarmoNiq/releases) para descargar la versión compilada más reciente:
+Ve a la pestaña de **Releases** para descargar la versión compilada más reciente:
 
 ### Para Windows
 Descarga el archivo `HarmoNiq-Windows-x86_64.exe` y ejecútalo. (Puede que Windows Defender lance una advertencia de "Editor desconocido", simplemente dale a "Más información" -> "Ejecutar de todas formas").
