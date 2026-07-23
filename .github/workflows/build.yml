@@ -3,35 +3,26 @@ name: Build HarmoNiq
 on:
   push:
     tags:
-      - 'v*' # Se ejecuta al crear un tag como v1.0.0
-  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, windows-latest]
-        python-version: ["3.12"]
-
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-22.04
+    container:
+      image: python:3.12
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1 libxkbcommon-x11-0 binutils libxcb-cursor0 libasound2 libnss3
+          apt-get update
+          apt-get install -y binutils libgl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3 libnss3 libasound2 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbfile1 libxfixes3 libnspr4 libnssutil3 libsmime3 libxcb-render-util0 libxcb-icccm4 libxcb-util1 libxcb-shape0 libxcb-keysyms1 libxcb-image0 file
 
       - name: Install Python dependencies
         run: |
@@ -42,26 +33,49 @@ jobs:
         run: |
           pyinstaller HarmoNiq.spec --clean -y
 
-      - name: Rename Linux Artifact
-        if: runner.os == 'Linux'
+      - name: Rename artifact
         run: mv dist/HarmoNiq dist/HarmoNiq-Linux-x86_64
 
-      - name: Rename Windows Artifact
-        if: runner.os == 'Windows'
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HarmoNiq-Linux
+          path: dist/HarmoNiq-Linux-x86_64
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller PySide6 fastapi uvicorn shazamio mutagen aiohttp python-multipart websockets aiofiles static-ffmpeg jinja2 yt-dlp
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller HarmoNiq.spec --clean -y
+
+      - name: Rename artifact
         run: ren dist\HarmoNiq.exe HarmoNiq-Windows-x86_64.exe
         shell: cmd
 
-      - name: Upload Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HarmoNiq-${{ runner.os }}
-          path: |
-            dist/HarmoNiq-Linux-x86_64
-            dist/HarmoNiq-Windows-x86_64.exe
+          name: HarmoNiq-Windows
+          path: dist/HarmoNiq-Windows-x86_64.exe
 
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -74,6 +88,13 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          name: "HarmoNiq ${{ github.ref_name }}"
+          body: |
+            ## 🎵 HarmoNiq ${{ github.ref_name }}
+
+            ### Descargas
+            - 🐧 **Linux**: Descarga `HarmoNiq-Linux-x86_64`, dale permisos con `chmod +x` y ejecútalo.
+            - 🪟 **Windows**: Descarga `HarmoNiq-Windows-x86_64.exe` y ejecútalo directamente.
           files: |
             dist-artifacts/HarmoNiq-Linux-x86_64
             dist-artifacts/HarmoNiq-Windows-x86_64.exe
