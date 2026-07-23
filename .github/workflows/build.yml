@@ -54,18 +54,19 @@ jobs:
           pip install pyinstaller PySide6 fastapi uvicorn shazamio mutagen aiohttp python-multipart websockets aiofiles static-ffmpeg jinja2 yt-dlp
 
       - name: Build with PyInstaller
-        run: |
-          pyinstaller HarmoNiq.spec --clean -y
+        run: pyinstaller HarmoNiq.spec --clean -y
 
-      - name: Rename artifact
-        run: ren dist\HarmoNiq.exe HarmoNiq-Windows-x86_64.exe
-        shell: cmd
+      - name: Zip onedir bundle
+        # onedir produce la carpeta dist/HarmoNiq/ (con HarmoNiq.exe dentro).
+        # Se comprime a un .zip para distribuir un solo archivo.
+        run: Compress-Archive -Path dist/HarmoNiq/* -DestinationPath HarmoNiq-Windows-x86_64.zip -Force
+        shell: pwsh
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: HarmoNiq-Windows
-          path: dist/HarmoNiq-Windows-x86_64.exe
+          path: HarmoNiq-Windows-x86_64.zip
 
   release:
     name: Create GitHub Release
@@ -88,9 +89,9 @@ jobs:
 
             ### Descargas
             - 🐧 **Linux**: Descarga `HarmoNiq-x86_64.AppImage`, dale permisos con `chmod +x` y ejecútalo.
-            - 🪟 **Windows**: Descarga `HarmoNiq-Windows-x86_64.exe` y ejecútalo directamente.
+            - 🪟 **Windows**: Descarga `HarmoNiq-Windows-x86_64.zip`, descomprímelo y ejecuta `HarmoNiq.exe`.
           files: |
             dist-artifacts/HarmoNiq-x86_64.AppImage
-            dist-artifacts/HarmoNiq-Windows-x86_64.exe
+            dist-artifacts/HarmoNiq-Windows-x86_64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
