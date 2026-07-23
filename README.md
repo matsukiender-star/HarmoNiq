@@ -37,10 +37,24 @@ Ve a la pestaña de **Releases** para descargar la versión compilada más recie
 Descarga el archivo `HarmoNiq-Windows-x86_64.exe` y ejecútalo. (Puede que Windows Defender lance una advertencia de "Editor desconocido", simplemente dale a "Más información" -> "Ejecutar de todas formas").
 
 ### Para Linux
-Descarga el archivo `HarmoNiq-Linux-x86_64`, dale permisos de ejecución y ejecútalo:
+Descarga `HarmoNiq-x86_64.AppImage`, dale permisos de ejecución y ejecútalo:
 ```bash
-chmod +x HarmoNiq-Linux-x86_64
-./HarmoNiq-Linux-x86_64
+chmod +x HarmoNiq-x86_64.AppImage
+./HarmoNiq-x86_64.AppImage
+```
+
+Compatible con **Linux Mint 21 y 22, Ubuntu 22.04+, Debian 12+, Fedora 36+** y
+derivadas. No requiere instalar Python, Qt ni ffmpeg: todo va dentro.
+
+**Si no abre**, ejecútalo desde una terminal con `HARMONIQ_DEBUG=1` para ver el
+error, o revisa el registro en `~/.cache/HarmoNiq/harmoniq.log`:
+```bash
+HARMONIQ_DEBUG=1 ./HarmoNiq-x86_64.AppImage
+```
+En equipos con tarjetas gráficas viejas o dentro de una máquina virtual, si la
+ventana sale en negro, forzá el renderizado por software:
+```bash
+HARMONIQ_SOFTWARE_GL=1 ./HarmoNiq-x86_64.AppImage
 ```
 
 ## 🚀 Compilar desde el código fuente
@@ -59,7 +73,43 @@ pip install -r requirements.txt
 python app/main.py
 ```
 
-Para generar tu propio binario ejecutable con PyInstaller:
+### Compilar el AppImage de Linux
+
+```bash
+./packaging/build_appimage.sh          # usa podman; ENGINE=docker para Docker
+```
+
+Genera `releases/HarmoNiq-x86_64.AppImage` y verifica su compatibilidad al final.
+
+**El build se hace dentro de un contenedor Ubuntu 22.04 a propósito.** Un binario
+de Linux se enlaza contra la glibc de la máquina donde se compiló y solo corre en
+sistemas con esa versión **o más nueva**. Compilarlo en Fedora/Nobara (glibc 2.43)
+o en la imagen `python:3.12` (Debian trixie, glibc 2.41) produce un AppImage que
+funciona en tu equipo y **no arranca en Linux Mint** (glibc 2.35 / 2.39): el
+enlazador aborta antes de ejecutar una sola línea, sin mostrar ningún mensaje.
+Ubuntu 22.04 es el mínimo común razonable hoy.
+
+Antes de publicar una release, comprobá el resultado:
+```bash
+./packaging/check_compat.sh releases/HarmoNiq-x86_64.AppImage
+```
+
+Otros detalles del empaquetado que importan (ver comentarios en `packaging/`):
+
+* Se usa **onedir** en vez de onefile: onefile descomprime ~270 MB a `/tmp` en
+  cada arranque y rompe a QtWebEngine, que necesita rutas estables.
+* El AppRun **desactiva el sandbox de Chromium**, que no puede inicializarse
+  dentro de un AppImage en Ubuntu 24.04 / Mint 22 (AppArmor bloquea los user
+  namespaces sin privilegios).
+* **No se empaquetan** `libGL`, `libEGL`, `libdrm`, `libgbm`, `libX11` ni
+  `libxcb`: son la mitad de usuario del driver de video y tienen que venir del
+  equipo del usuario.
+* `libstdc++` viaja aparte en `usr/optional/` y el AppRun elige entre la del
+  sistema y la del bundle según cuál sea más nueva.
+* `ffmpeg` y `ffprobe` van incluidos, así la app no necesita descargarlos en el
+  primer arranque.
+
+### Compilar el ejecutable de Windows
 ```bash
 pyinstaller HarmoNiq.spec --clean -y
 ```

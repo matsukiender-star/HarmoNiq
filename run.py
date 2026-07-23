@@ -1,78 +1,158 @@
 #!/usr/bin/env python3
+"""Punto de entrada de HarmoNiq: levanta el backend FastAPI en un puerto local
+y lo muestra dentro de una ventana Qt con su propio Chromium (QtWebEngine)."""
 import os
 import sys
-import webbrowser
+import socket
 import threading
 import time
-import socket
+import traceback
 
-import certifi
-import os
-os.environ["SSL_CERT_FILE"] = certifi.where()
-os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+# --- Entorno previo a cualquier import pesado -------------------------------
 
-import uvicorn
-import static_ffmpeg
-import websockets
-import uvicorn.loops.auto
-import uvicorn.protocols.http.auto
-import uvicorn.protocols.websockets.auto
-from PySide6.QtWidgets import QApplication, QMainWindow
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtCore import QUrl
+FROZEN = getattr(sys, "frozen", False)
 
-import app.main  # Force PyInstaller to bundle the entire backend
 
-# Ensure ffmpeg static binaries are added to PATH
-static_ffmpeg.add_paths()
+def _bundle_dir():
+    """Carpeta donde viven los datos empaquetados (o el repo, en desarrollo)."""
+    if FROZEN:
+        return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+BUNDLE_DIR = _bundle_dir()
+
+# ffmpeg/ffprobe empaquetados junto al ejecutable. Ponerlos primero en el PATH
+# evita que static_ffmpeg intente descargarlos en el primer arranque, que es
+# lento y falla en equipos sin conexion o detras de un proxy.
+os.environ["PATH"] = BUNDLE_DIR + os.pathsep + os.environ.get("PATH", "")
+
+import certifi  # noqa: E402
+
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+
+import uvicorn  # noqa: E402
+import uvicorn.loops.auto  # noqa: E402,F401
+import uvicorn.protocols.http.auto  # noqa: E402,F401
+import uvicorn.protocols.websockets.auto  # noqa: E402,F401
+import websockets  # noqa: E402,F401
+
+from PySide6.QtCore import QUrl, Qt  # noqa: E402
+from PySide6.QtGui import QIcon  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox  # noqa: E402
+from PySide6.QtWebEngineWidgets import QWebEngineView  # noqa: E402
+
+# Se importa el OBJETO app, no la ruta "app.main:app" como string.
+# uvicorn.run("app.main:app") obliga a uvicorn a re-importar el modulo por
+# nombre en un hilo aparte, y dentro del bundle de PyInstaller esa resolucion
+# falla con: 'Error loading ASGI app. Could not import module "app.main"'.
+# Pasar el objeto ya importado elimina el problema por completo.
+from app.main import app as fastapi_app  # noqa: E402
+
+
+def restore_host_env():
+    """Devuelve el entorno limpio del sistema para procesos hijos.
+
+    El AppRun antepone las librerias del bundle a LD_LIBRARY_PATH. Si un hijo
+    (xdg-open, el gestor de archivos, el navegador) hereda eso, carga el
+    libssl/libcrypto del bundle y muere con errores tipo
+    'version OPENSSL_3.4.0 not found'. Esta funcion da un env seguro para
+    subprocess.Popen(..., env=restore_host_env()).
+    """
+    env = dict(os.environ)
+    host = env.pop("HARMONIQ_HOST_LD_LIBRARY_PATH", "")
+    if host:
+        env["LD_LIBRARY_PATH"] = host
+    else:
+        env.pop("LD_LIBRARY_PATH", None)
+    return env
+
 
 def find_free_port():
-    import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
+        s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+def wait_for_server(port, timeout=30.0):
+    """Espera a que el backend acepte conexiones. Devuelve True si arranco."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                return True
+        except OSError:
+            time.sleep(0.15)
+    return False
+
 
 def main():
     port = find_free_port()
     url = f"http://127.0.0.1:{port}"
-    print("=" * 65)
-    print(" 🎵 HarmoNiq - YouTube MP3 & Shazam Auto-Tagger")
-    print("=" * 65)
-    print(f" Iniciando servidor web local en: {url}")
-    print(" Presiona Ctrl+C para detener la aplicación.")
-    print("=" * 65)
-    
-    # Open browser automatically after brief delay
-    def start_server():
-        uvicorn.run("app.main:app", host="127.0.0.1", port=port, log_level="error", reload=False)
 
-    server_thread = threading.Thread(target=start_server)
-    server_thread.daemon = True
-    server_thread.start()
-    
-    # Create the PySide6 window
-    app = QApplication(sys.argv)
+    print("=" * 65)
+    print(" HarmoNiq - YouTube MP3 & Shazam Auto-Tagger")
+    print("=" * 65)
+    print(f" Servidor local: {url}")
+    print("=" * 65)
+    sys.stdout.flush()
+
+    server_error = []
+
+    def start_server():
+        try:
+            uvicorn.run(
+                fastapi_app,
+                host="127.0.0.1",
+                port=port,
+                log_level="error",
+                reload=False,
+            )
+        except Exception:
+            server_error.append(traceback.format_exc())
+            traceback.print_exc()
+
+    threading.Thread(target=start_server, daemon=True).start()
+
+    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
+    qt_app = QApplication(sys.argv)
+    qt_app.setApplicationName("HarmoNiq")
+    qt_app.setDesktopFileName("harmoniq")
+
+    icon_path = os.path.join(BUNDLE_DIR, "app", "static", "images", "harmoniq_icon.png")
+    if os.path.exists(icon_path):
+        qt_app.setWindowIcon(QIcon(icon_path))
+
+    if not wait_for_server(port):
+        detalle = server_error[0] if server_error else "El servidor no respondio a tiempo."
+        print(detalle, file=sys.stderr)
+        QMessageBox.critical(
+            None,
+            "HarmoNiq",
+            "No se pudo iniciar el servidor interno.\n\n"
+            "Detalles en: ~/.cache/HarmoNiq/harmoniq.log",
+        )
+        return 1
+
     window = QMainWindow()
     window.setWindowTitle("HarmoNiq - Auto-Tagger")
-    window.resize(1024, 768)
-    
-    view = QWebEngineView()
-    
-    # Wait for the backend server to start before loading
-    import socket
-    for _ in range(30):
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.1):
-                break
-        except OSError:
-            time.sleep(0.1)
+    window.resize(1200, 820)
 
+    view = QWebEngineView()
     view.load(QUrl(url))
-    
     window.setCentralWidget(view)
     window.show()
-    
-    sys.exit(app.exec())
+
+    return qt_app.exec()
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main())
+    except Exception:
+        # Sin esto, cualquier fallo temprano cierra la app en silencio y el
+        # usuario solo ve que "no pasa nada".
+        traceback.print_exc()
+        sys.stderr.flush()
+        sys.exit(1)

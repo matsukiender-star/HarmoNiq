@@ -1,0 +1,130 @@
+#!/bin/bash
+# AppRun de HarmoNiq.
+#
+# El AppRun original solo hacia `exec usr/bin/HarmoNiq`. Eso deja cuatro fallos
+# que hacen que la app no arranque (o arranque en negro) en muchas distros.
+# Aqui se corrigen uno por uno.
+
+set -u
+
+SELF="$(readlink -f "$0")"
+HERE="${SELF%/*}"
+APPDIR="${HERE}"
+BINDIR="${APPDIR}/usr/bin/HarmoNiq"
+
+# ---------------------------------------------------------------------------
+# 1) Log de arranque.
+# El spec original usaba console=False, asi que si algo fallaba el usuario veia
+# la nada absoluta. Ahora todo queda registrado y se le puede pedir el archivo.
+# ---------------------------------------------------------------------------
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/HarmoNiq"
+mkdir -p "${LOG_DIR}" 2>/dev/null || LOG_DIR=/tmp
+LOG="${LOG_DIR}/harmoniq.log"
+: > "${LOG}" 2>/dev/null || LOG=/dev/null
+
+{
+  echo "=== HarmoNiq $(date -Is) ==="
+  echo "AppDir: ${APPDIR}"
+  echo "Distro: $(. /etc/os-release 2>/dev/null && echo "${PRETTY_NAME:-desconocida}")"
+  echo "glibc:  $(ldd --version 2>/dev/null | head -1)"
+  echo "Sesion: ${XDG_SESSION_TYPE:-desconocida}"
+} >> "${LOG}" 2>&1
+
+# ---------------------------------------------------------------------------
+# 2) Sandbox de Chromium.
+# QtWebEngine arranca un proceso Chromium que exige user namespaces sin
+# privilegios. Ubuntu 24.04 / Mint 22 los bloquean por AppArmor y Debian los
+# restringe por sysctl; dentro de un AppImage (que ya corre sobre FUSE) el
+# sandbox casi nunca puede inicializarse y el proceso muere sin ventana.
+# Desactivarlo es lo que hacen practicamente todas las apps Electron/Qt
+# empaquetadas como AppImage.
+# ---------------------------------------------------------------------------
+export QTWEBENGINE_DISABLE_SANDBOX=1
+export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:-} --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage"
+
+# Aceleracion por GPU: en drivers viejos o VMs provoca ventana en negro.
+# Se puede forzar el modo software con HARMONIQ_SOFTWARE_GL=1.
+if [ "${HARMONIQ_SOFTWARE_GL:-0}" = "1" ]; then
+    export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS} --disable-gpu --disable-software-rasterizer"
+    export LIBGL_ALWAYS_SOFTWARE=1
+fi
+
+# ---------------------------------------------------------------------------
+# 3) Plataforma Qt.
+# En sesiones Wayland puras Qt busca el plugin wayland; si no esta en el bundle
+# aborta con "could not load the Qt platform plugin". XCB via XWayland funciona
+# en todos lados, asi que es el default salvo que el usuario pida otra cosa.
+# ---------------------------------------------------------------------------
+if [ -z "${QT_QPA_PLATFORM:-}" ]; then
+    if [ "${XDG_SESSION_TYPE:-}" = "wayland" ] && [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        export QT_QPA_PLATFORM="xcb;wayland"
+    else
+        export QT_QPA_PLATFORM="xcb"
+    fi
+fi
+
+# En un bundle onedir de PyInstaller 6.x todo cuelga de _internal/.
+PYI_INTERNAL="${APPDIR}/usr/bin/HarmoNiq/_internal"
+QT_ROOT="${PYI_INTERNAL}/PySide6/Qt"
+[ -d "${QT_ROOT}/plugins" ] && export QT_PLUGIN_PATH="${QT_ROOT}/plugins"
+[ -d "${QT_ROOT}/plugins/platforms" ] && export QT_QPA_PLATFORM_PLUGIN_PATH="${QT_ROOT}/plugins/platforms"
+[ -d "${QT_ROOT}/resources" ] && export QTWEBENGINE_RESOURCES_PATH="${QT_ROOT}/resources"
+[ -d "${QT_ROOT}/translations/qtwebengine_locales" ] && \
+    export QTWEBENGINE_LOCALES_PATH="${QT_ROOT}/translations/qtwebengine_locales"
+
+# ---------------------------------------------------------------------------
+# 4) Aislar las librerias del bundle.
+# Este era un bug real y visible: al exportar LD_LIBRARY_PATH global, cualquier
+# proceso hijo que la app lanzara (xdg-open, el navegador, flatpak) heredaba el
+# libssl/libcrypto del bundle y reventaba con errores tipo
+#   "version OPENSSL_3.4.0 not found".
+# Se guarda el entorno limpio en HARMONIQ_HOST_* para que la app pueda
+# restaurarlo antes de abrir nada del sistema.
+# ---------------------------------------------------------------------------
+export HARMONIQ_HOST_LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
+export HARMONIQ_APPDIR="${APPDIR}"
+export LD_LIBRARY_PATH="${PYI_INTERNAL}:${QT_ROOT}/lib:${APPDIR}/usr/lib:${LD_LIBRARY_PATH:-}"
+
+# --- libstdc++: usar la del sistema salvo que sea mas vieja que la del bundle
+# Si se impone siempre la empaquetada, los drivers de video del sistema (que se
+# cargan dentro del mismo proceso) fallan con GLIBCXX_x.x.xx not found.
+# Si se omite siempre, revienta en distros mas antiguas que el contenedor de
+# build. Se compara y se elige.
+max_glibcxx() {
+    strings "$1" 2>/dev/null | grep -oE 'GLIBCXX_[0-9]+\.[0-9]+\.[0-9]+' \
+        | sort -uV | tail -1 | sed 's/GLIBCXX_//'
+}
+BUNDLED_STDCXX="${APPDIR}/usr/optional/libstdc++.so.6"
+if [ -f "${BUNDLED_STDCXX}" ]; then
+    HOST_STDCXX="$( { ldconfig -p 2>/dev/null | grep -m1 'libstdc++\.so\.6' | awk '{print $NF}'; } || true)"
+    BUNDLED_VER="$(max_glibcxx "${BUNDLED_STDCXX}")"
+    HOST_VER="$([ -n "${HOST_STDCXX}" ] && max_glibcxx "${HOST_STDCXX}")"
+    if [ -z "${HOST_VER}" ] || \
+       [ "$(printf '%s\n%s\n' "${HOST_VER}" "${BUNDLED_VER}" | sort -V | head -1)" = "${HOST_VER}" ] && \
+       [ "${HOST_VER}" != "${BUNDLED_VER}" ]; then
+        echo "libstdc++: del sistema (${HOST_VER:-ninguna}) es mas vieja que la del bundle (${BUNDLED_VER}); se usa la del bundle" >> "${LOG}"
+        export LD_LIBRARY_PATH="${APPDIR}/usr/optional:${LD_LIBRARY_PATH}"
+    else
+        echo "libstdc++: se usa la del sistema (${HOST_VER})" >> "${LOG}"
+    fi
+fi
+
+# ffmpeg/ffprobe del bundle, para no depender de descarga en runtime.
+export PATH="${PYI_INTERNAL}:${APPDIR}/usr/bin/HarmoNiq:${PATH}"
+
+# ---------------------------------------------------------------------------
+# 5) Ejecutar.
+# ---------------------------------------------------------------------------
+if [ ! -x "${BINDIR}/HarmoNiq" ]; then
+    echo "ERROR: no se encuentra el ejecutable en ${BINDIR}/HarmoNiq" | tee -a "${LOG}" >&2
+    exit 1
+fi
+
+echo "--- salida de la aplicacion ---" >> "${LOG}" 2>&1
+
+if [ "${HARMONIQ_DEBUG:-0}" = "1" ]; then
+    # Modo diagnostico: todo a la terminal y al log.
+    exec "${BINDIR}/HarmoNiq" "$@" 2>&1 | tee -a "${LOG}"
+else
+    exec "${BINDIR}/HarmoNiq" "$@" >> "${LOG}" 2>&1
+fi

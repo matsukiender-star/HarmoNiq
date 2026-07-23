@@ -1,0 +1,34 @@
+# Imagen de build para el AppImage de HarmoNiq.
+#
+# Se usa Ubuntu 22.04 a proposito: trae glibc 2.35, la mas vieja que sigue
+# soportada y que cubre Linux Mint 21/22, Ubuntu 22.04+, Debian 12+ y Fedora 36+.
+# Un binario compilado aqui corre en cualquier distro mas nueva; al reves no.
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Python 3.12 desde deadsnakes (22.04 solo trae 3.10 y shazamio/yt-dlp van mejor en 3.12)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common ca-certificates gnupg curl wget file binutils patchelf xz-utils \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 python3.12-venv python3.12-dev build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dependencias de runtime de Qt6 / QtWebEngine. Se instalan para que PyInstaller
+# las detecte y las copie dentro del bundle.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 libegl1 libopengl0 libglx0 libxkbcommon-x11-0 libxcb-cursor0 \
+        libxcb-render-util0 libxcb-icccm4 libxcb-util1 libxcb-shape0 \
+        libxcb-keysyms1 libxcb-image0 libxcb-randr0 libxcb-xinerama0 libxcb-xkb1 \
+        libdbus-1-3 libnss3 libnspr4 libxcomposite1 libxdamage1 libxrandr2 \
+        libxtst6 libxkbfile1 libxfixes3 libxi6 libasound2 libatk1.0-0 \
+        libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libpango-1.0-0 libcairo2 \
+        libatspi2.0-0 libxshmfence1 fontconfig fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.12 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
+RUN pip install --no-cache-dir --upgrade pip wheel setuptools
+
+WORKDIR /src

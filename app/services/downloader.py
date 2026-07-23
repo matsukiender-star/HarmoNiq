@@ -1,6 +1,27 @@
 import os
-import static_ffmpeg
-static_ffmpeg.add_paths()
+import shutil
+
+
+def _ensure_ffmpeg():
+    """Deja ffmpeg/ffprobe disponibles en el PATH.
+
+    Si ya hay un ffmpeg utilizable (el que viene dentro del AppImage, o el del
+    sistema) no se toca nada. Solo se recurre a static_ffmpeg como ultimo
+    recurso, porque su add_paths() escribe un lock dentro del paquete y dentro
+    de un AppImage el sistema de archivos es de solo lectura:
+        OSError: [Errno 30] Read-only file system: '.../static_ffmpeg/lock.file'
+    Eso tumbaba la app al arrancar, antes de mostrar ninguna ventana.
+    """
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        return
+    try:
+        import static_ffmpeg
+        static_ffmpeg.add_paths()
+    except Exception as exc:  # pragma: no cover - depende del entorno
+        print(f"[ffmpeg] no se pudo preparar static_ffmpeg: {exc}")
+
+
+_ensure_ffmpeg()
 
 import asyncio
 from typing import Dict, Any, Callable, Optional

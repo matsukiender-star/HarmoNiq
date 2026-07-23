@@ -1,8 +1,22 @@
 import asyncio
 import os
 import re
+import aiohttp
 from typing import Dict, Any, Optional
+
 from shazamio import Shazam
+import shazamio.client
+
+print(f"SHAZAM_CLIENT_TYPE: {shazamio.client.ClientSession}")
+
+# Monkey patch shazamio's internal HTTP client session
+_original_client_session = shazamio.client.ClientSession
+class _BypassSSLSession(_original_client_session):
+    def __init__(self, *args, **kwargs):
+        if 'connector' not in kwargs or kwargs['connector'] is None:
+            kwargs['connector'] = aiohttp.TCPConnector(ssl=False)
+        super().__init__(*args, **kwargs)
+shazamio.client.ClientSession = _BypassSSLSession
 
 class ShazamService:
     def __init__(self):

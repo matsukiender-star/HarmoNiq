@@ -34,6 +34,7 @@ ENV/
 
 # PyInstaller
 *.spec
+!packaging/HarmoNiq-linux.spec
 build/
 dist/
 
@@ -43,3 +44,10 @@ dist/
 # Misceláneos
 HarmoNiq
 HarmoNiq.exe
+vendor/
+AppDir/
+packaging/.cache/
+
+# AppImages generados (van a GitHub Releases, no al repo)
+releases/
+*.AppImage
