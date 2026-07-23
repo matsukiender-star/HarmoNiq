@@ -407,13 +407,13 @@ async def get_audio_file(path: str):
 @app.get("/api/cover-file")
 async def get_cover_file(path: str):
     if not os.path.exists(path) or not path.endswith(".mp3"):
-        return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"))
+        return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"), media_type="image/svg+xml")
 
     img_bytes, mime_type = TaggerService.get_cover_art(path)
     if img_bytes:
         return Response(content=img_bytes, media_type=mime_type or "image/jpeg")
 
-    return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"))
+    return FileResponse(os.path.join(BASE_DIR, "static/images/default_cover.svg"), media_type="image/svg+xml")
 
 @app.post("/api/open-folder")
 async def open_folder(payload: Dict[str, str]):
