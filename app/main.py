@@ -5,6 +5,10 @@ import uuid
 import asyncio
 import subprocess
 import tempfile
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
+
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -251,6 +255,8 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
                 "message": f"[{i+1}/{total_entries}] Reconociendo canción con Shazam...",
                 "percent": 85
             })
+            
+            print(f"About to shazam {mp3_file}. Exists? {os.path.exists(mp3_file)}")
 
             shazam_res = await shazam_service.recognize_file(mp3_file)
             
@@ -272,6 +278,7 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
                     "matched_by_shazam": True
                 }
             else:
+                print("Shazam failed or didn't match. Response:", shazam_res)
                 parsed = ShazamService.parse_youtube_title(yt_title, yt_uploader)
                 metadata = {
                     "title": parsed["title"],
@@ -304,13 +311,19 @@ async def run_download_process(task_id: str, url: str, target_dir: str, auto_sha
             "percent": 95
         })
 
-        tag_success = await asyncio.to_thread(
-            TaggerService.tag_file,
-            file_path=mp3_file,
-            metadata=metadata
+        tag_res = await asyncio.to_thread(
+            TaggerService.apply_tags,
+            mp3_file,
+            metadata.get("title"),
+            metadata.get("artist"),
+            metadata.get("album"),
+            metadata.get("year"),
+            metadata.get("genre"),
+            metadata.get("lyrics"),
+            metadata.get("cover_url")
         )
 
-        if not tag_success:
+        if not tag_res.get("success"):
             pass
 
         await manager.send_status(task_id, {

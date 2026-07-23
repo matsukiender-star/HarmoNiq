@@ -2,6 +2,8 @@ import os
 import io
 import base64
 import urllib.request
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 from typing import Dict, Any, Optional, Tuple
 from mutagen.mp3 import MP3
 from mutagen.id3 import (

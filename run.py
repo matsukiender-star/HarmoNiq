@@ -4,6 +4,13 @@ import sys
 import webbrowser
 import threading
 import time
+import socket
+
+import certifi
+import os
+os.environ["SSL_CERT_FILE"] = certifi.where()
+os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+
 import uvicorn
 import static_ffmpeg
 import websockets
